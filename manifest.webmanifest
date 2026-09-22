@@ -1,0 +1,19 @@
+{
+  "id": "./",
+  "name": "PEN Portal",
+  "short_name": "PEN Portal",
+  "description": "Practical Education Network Portal",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F4F7F7",
+  "theme_color": "#0B6768",
+  "lang": "en",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {"src":"./icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"./icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"},
+    {"src":"./icons/apple-touch-icon.png","sizes":"180x180","type":"image/png","purpose":"any"}
+  ]
+}
