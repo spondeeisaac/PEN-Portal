@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0B6768">
+  <meta name="application-name" content="PEN Portal">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PEN Portal">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <title>PEN Portal</title>
+  <style>
+    :root{--teal:#0B6768;--teal2:#179A99;--yellow:#FAD00F;--ink:#123B43;--bg:#eef4f4}
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:Arial,Helvetica,sans-serif;color:var(--ink)}
+    body{padding-top:env(safe-area-inset-top)}
+    .app{height:100%;display:flex;flex-direction:column}
+    .bar{height:48px;min-height:48px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 12px;gap:10px;box-shadow:0 1px 5px rgba(0,0,0,.18);z-index:3}
+    .brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:.1px}
+    .brand-logo{width:30px;height:30px;border-radius:8px;object-fit:cover;background:#fff;display:block}
+    .status{font-size:11px;opacity:.92;white-space:nowrap}
+    .frame-wrap{position:relative;flex:1;min-height:0;background:#fff}
+    iframe{display:block;width:100%;height:100%;border:0;background:#fff}
+    .loading{position:absolute;inset:0;display:grid;place-items:center;background:#fff;z-index:2;transition:opacity .25s ease}
+    .loading.hidden{opacity:0;pointer-events:none}
+    .loader{text-align:center;padding:24px;color:#61777B}
+    .spinner{width:32px;height:32px;border:3px solid #d8e5e5;border-top-color:var(--teal2);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .offline{display:none;position:absolute;left:10px;right:10px;bottom:10px;background:#fff7d1;border:1px solid #ebd66b;color:#6e5d00;border-radius:10px;padding:9px 11px;font-size:12px;z-index:4;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+    .offline.show{display:block}
+    .actions{display:flex;align-items:center;gap:6px}
+    .iconbtn{border:0;background:transparent;color:#fff;width:32px;height:32px;border-radius:8px;font-size:18px;display:grid;place-items:center;cursor:pointer}
+    .iconbtn:active{background:rgba(255,255,255,.15)}
+    @media (min-width:900px){
+      .bar{height:42px;min-height:42px;padding:0 16px}
+      .frame-wrap{max-width:1400px;width:100%;margin:0 auto}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="bar">
+      <div class="brand"><img class="brand-logo" src="./icons/icon-192.png" alt="Practical Education Network"><span>PEN Portal</span></div>
+      <div class="actions">
+        <span id="networkStatus" class="status">Online</span>
+        <button class="iconbtn" id="refreshBtn" type="button" aria-label="Refresh">↻</button>
+      </div>
+    </header>
+    <main class="frame-wrap">
+      <div class="loading" id="loading"><div class="loader"><div class="spinner"></div><div>Opening PEN Portal…</div></div></div>
+      <iframe
+        id="portalFrame"
+        title="PEN Portal Portal"
+        src="https://script.google.com/macros/s/AKfycbz4OAIXJVtUWOPUjIXz6WV4DWYLWepJsQMCshp5IKEa4efBcrtrisoXgmRqeLYfIyDicA/exec"
+        allow="clipboard-write; fullscreen; camera; microphone"
+        allowfullscreen>
+      </iframe>
+      <div id="offlineNotice" class="offline">You are offline. PEN Portal needs an internet connection for live portal data.</div>
+    </main>
+  </div>
+  <script>
+    const frame=document.getElementById('portalFrame');
+    const loading=document.getElementById('loading');
+    const status=document.getElementById('networkStatus');
+    const offline=document.getElementById('offlineNotice');
+    const refresh=document.getElementById('refreshBtn');
+    frame.addEventListener('load',()=>loading.classList.add('hidden'));
+    refresh.addEventListener('click',()=>{loading.classList.remove('hidden'); try{frame.contentWindow.location.reload()}catch(e){frame.src=frame.src}});
+    function updateNet(){
+      const online=navigator.onLine;
+      status.textContent=online?'Online':'Offline';
+      offline.classList.toggle('show',!online);
+    }
+    window.addEventListener('online',updateNet);
+    window.addEventListener('offline',updateNet);
+    updateNet();
+    if('serviceWorker' in navigator){
+      window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js',{scope:'./'}).catch(()=>{}));
+    }
+  </script>
+</body>
+</html>
