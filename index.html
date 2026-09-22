@@ -13,73 +13,225 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
   <title>PEN Portal</title>
   <style>
-    :root{--teal:#0B6768;--teal2:#179A99;--yellow:#FAD00F;--ink:#123B43;--bg:#eef4f4}
+    :root{--teal:#0B6768;--teal2:#179A99;--yellow:#FAD00F;--ink:#123B43;--muted:#61777B;--bg:#eef4f4;--line:#d6e2e3}
     *{box-sizing:border-box}
     html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:Arial,Helvetica,sans-serif;color:var(--ink)}
     body{padding-top:env(safe-area-inset-top)}
     .app{height:100%;display:flex;flex-direction:column}
-    .bar{height:48px;min-height:48px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 12px;gap:10px;box-shadow:0 1px 5px rgba(0,0,0,.18);z-index:3}
-    .brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:.1px}
-    .brand-logo{width:30px;height:30px;border-radius:8px;object-fit:cover;background:#fff;display:block}
+    .bar{height:52px;min-height:52px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 12px;gap:10px;box-shadow:0 1px 5px rgba(0,0,0,.18);z-index:3}
+    .brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:.1px;min-width:0}
+    .brand-logo{width:34px;height:34px;border-radius:9px;object-fit:contain;background:#fff;padding:2px;display:block;flex:0 0 auto}
+    .brand-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .status{font-size:11px;opacity:.92;white-space:nowrap}
+    .actions{display:flex;align-items:center;gap:4px}
+    .iconbtn{border:0;background:transparent;color:#fff;width:34px;height:34px;border-radius:8px;font-size:18px;display:grid;place-items:center;cursor:pointer}
+    .iconbtn:active{background:rgba(255,255,255,.15)}
+    .installBtn{display:none;border:0;border-radius:8px;background:#FAD00F;color:#123B43;font-weight:800;font-size:12px;padding:8px 11px;cursor:pointer;white-space:nowrap}
+    .installBtn.show{display:inline-flex}
     .frame-wrap{position:relative;flex:1;min-height:0;background:#fff}
     iframe{display:block;width:100%;height:100%;border:0;background:#fff}
     .loading{position:absolute;inset:0;display:grid;place-items:center;background:#fff;z-index:2;transition:opacity .25s ease}
     .loading.hidden{opacity:0;pointer-events:none}
-    .loader{text-align:center;padding:24px;color:#61777B}
+    .loader{text-align:center;padding:24px;color:var(--muted)}
     .spinner{width:32px;height:32px;border:3px solid #d8e5e5;border-top-color:var(--teal2);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
     @keyframes spin{to{transform:rotate(360deg)}}
     .offline{display:none;position:absolute;left:10px;right:10px;bottom:10px;background:#fff7d1;border:1px solid #ebd66b;color:#6e5d00;border-radius:10px;padding:9px 11px;font-size:12px;z-index:4;box-shadow:0 4px 16px rgba(0,0,0,.08)}
     .offline.show{display:block}
-    .actions{display:flex;align-items:center;gap:6px}
-    .iconbtn{border:0;background:transparent;color:#fff;width:32px;height:32px;border-radius:8px;font-size:18px;display:grid;place-items:center;cursor:pointer}
-    .iconbtn:active{background:rgba(255,255,255,.15)}
+    .update{display:none;position:absolute;left:10px;right:10px;top:10px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;z-index:5;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+    .update.show{display:flex;align-items:center;gap:10px}
+    .update-copy{flex:1;min-width:0}
+    .update-title{font-size:13px;font-weight:800;color:var(--ink)}
+    .update-text{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4}
+    .updateBtn{border:0;border-radius:8px;background:var(--teal2);color:#fff;font-weight:800;padding:9px 12px;cursor:pointer;white-space:nowrap}
+    .help{display:none;position:absolute;inset:0;background:rgba(0,0,0,.42);z-index:10;padding:18px;align-items:center;justify-content:center}
+    .help.show{display:flex}
+    .help-card{width:min(460px,100%);background:#fff;border-radius:18px;padding:22px;box-shadow:0 18px 50px rgba(0,0,0,.25)}
+    .help-card h2{margin:0 0 8px;color:var(--ink);font-size:22px}
+    .help-card p{margin:8px 0;color:var(--muted);line-height:1.55;font-size:14px}
+    .help-close{width:100%;margin-top:14px;border:0;background:var(--teal);color:#fff;border-radius:9px;padding:12px;font-weight:800;cursor:pointer}
+    .step{margin:12px 0;padding:11px 12px;background:#f4f7f7;border:1px solid #e2eded;border-radius:10px;font-size:14px;line-height:1.5}
+    .step strong{color:var(--ink)}
     @media (min-width:900px){
-      .bar{height:42px;min-height:42px;padding:0 16px}
+      .bar{height:48px;min-height:48px;padding:0 16px}
       .frame-wrap{max-width:1400px;width:100%;margin:0 auto}
+    }
+    @media (max-width:520px){
+      .bar{padding:0 8px}
+      .brand-logo{width:32px;height:32px}
+      .brand-name{font-size:14px}
+      .status{display:none}
+      .installBtn{font-size:11px;padding:7px 9px}
+      .help{padding:12px}
     }
   </style>
 </head>
 <body>
   <div class="app">
     <header class="bar">
-      <div class="brand"><img class="brand-logo" src="./icons/icon-192.png" alt="Practical Education Network"><span>PEN Portal</span></div>
+      <div class="brand">
+        <img class="brand-logo" src="./icons/icon-192.png" alt="Practical Education Network">
+        <span class="brand-name">PEN Portal</span>
+      </div>
       <div class="actions">
         <span id="networkStatus" class="status">Online</span>
-        <button class="iconbtn" id="refreshBtn" type="button" aria-label="Refresh">↻</button>
+        <button id="installBtn" class="installBtn" type="button">Install</button>
+        <button id="refreshBtn" class="iconbtn" type="button" aria-label="Refresh portal">↻</button>
       </div>
     </header>
+
     <main class="frame-wrap">
-      <div class="loading" id="loading"><div class="loader"><div class="spinner"></div><div>Opening PEN Portal…</div></div></div>
+      <div class="loading" id="loading">
+        <div class="loader"><div class="spinner"></div><div>Opening PEN Portal…</div></div>
+      </div>
+
+      <div class="update" id="updateNotice">
+        <div class="update-copy">
+          <div class="update-title">A new PEN Portal version is available.</div>
+          <div class="update-text">Update now to use the latest improvements.</div>
+        </div>
+        <button id="updateBtn" class="updateBtn" type="button">Update</button>
+      </div>
+
       <iframe
         id="portalFrame"
-        title="PEN Portal Portal"
-        src="https://script.google.com/macros/s/AKfycbzGhHxVr6BMFSTi7Z_hXH4o1Z2dM5-kXaBaBnt-oI9C3Iq9H4mSzQBkO-5KjfIsTH112g/exec"
+        title="PEN Portal"
+        src="https://www.practicaleducationnetwork.com/portal"
         allow="clipboard-write; fullscreen; camera; microphone"
         allowfullscreen>
       </iframe>
+
       <div id="offlineNotice" class="offline">You are offline. PEN Portal needs an internet connection for live portal data.</div>
+
+      <div id="iosHelp" class="help" role="dialog" aria-modal="true" aria-labelledby="iosHelpTitle">
+        <div class="help-card">
+          <h2 id="iosHelpTitle">Install PEN Portal on iPhone</h2>
+          <p>On iPhone, installation is done through Safari.</p>
+          <div class="step"><strong>1.</strong> Open PEN Portal in <strong>Safari</strong>.</div>
+          <div class="step"><strong>2.</strong> Tap the <strong>Share</strong> button.</div>
+          <div class="step"><strong>3.</strong> Choose <strong>Add to Home Screen</strong>.</div>
+          <div class="step"><strong>4.</strong> Tap <strong>Add</strong>. PEN Portal will appear on the Home Screen like an app.</div>
+          <button id="iosClose" class="help-close" type="button">Close</button>
+        </div>
+      </div>
     </main>
   </div>
+
   <script>
-    const frame=document.getElementById('portalFrame');
-    const loading=document.getElementById('loading');
-    const status=document.getElementById('networkStatus');
-    const offline=document.getElementById('offlineNotice');
-    const refresh=document.getElementById('refreshBtn');
-    frame.addEventListener('load',()=>loading.classList.add('hidden'));
-    refresh.addEventListener('click',()=>{loading.classList.remove('hidden'); try{frame.contentWindow.location.reload()}catch(e){frame.src=frame.src}});
+    const frame = document.getElementById('portalFrame');
+    const loading = document.getElementById('loading');
+    const status = document.getElementById('networkStatus');
+    const offline = document.getElementById('offlineNotice');
+    const refresh = document.getElementById('refreshBtn');
+    const installBtn = document.getElementById('installBtn');
+    const updateNotice = document.getElementById('updateNotice');
+    const updateBtn = document.getElementById('updateBtn');
+    const iosHelp = document.getElementById('iosHelp');
+    const iosClose = document.getElementById('iosClose');
+
+    let deferredInstallPrompt = null;
+    let waitingWorker = null;
+    let refreshingForUpdate = false;
+
+    frame.addEventListener('load', () => loading.classList.add('hidden'));
+    refresh.addEventListener('click', () => {
+      loading.classList.remove('hidden');
+      try { frame.contentWindow.location.reload(); }
+      catch (e) { frame.src = frame.src; }
+    });
+
     function updateNet(){
-      const online=navigator.onLine;
-      status.textContent=online?'Online':'Offline';
-      offline.classList.toggle('show',!online);
+      const online = navigator.onLine;
+      status.textContent = online ? 'Online' : 'Offline';
+      offline.classList.toggle('show', !online);
     }
-    window.addEventListener('online',updateNet);
-    window.addEventListener('offline',updateNet);
+    window.addEventListener('online', updateNet);
+    window.addEventListener('offline', updateNet);
     updateNet();
-    if('serviceWorker' in navigator){
-      window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js',{scope:'./'}).catch(()=>{}));
+
+    function isStandalone(){
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     }
+
+    function showInstallOption(){
+      if (isStandalone()) {
+        installBtn.classList.remove('show');
+        return;
+      }
+      installBtn.classList.add('show');
+    }
+
+    window.addEventListener('beforeinstallprompt', event => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      installBtn.textContent = 'Install';
+      showInstallOption();
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      installBtn.classList.remove('show');
+    });
+
+    function isIOS(){
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+
+    installBtn.addEventListener('click', async () => {
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        try { await deferredInstallPrompt.userChoice; } catch (e) {}
+        deferredInstallPrompt = null;
+        return;
+      }
+      if (isIOS()) {
+        iosHelp.classList.add('show');
+        return;
+      }
+      alert('Use your browser menu and choose Install PEN Portal or Add to Home screen.');
+    });
+
+    iosClose.addEventListener('click', () => iosHelp.classList.remove('show'));
+    iosHelp.addEventListener('click', e => { if (e.target === iosHelp) iosHelp.classList.remove('show'); });
+
+    function showUpdate(registration){
+      waitingWorker = registration.waiting;
+      if (waitingWorker) updateNotice.classList.add('show');
+    }
+
+    function monitorRegistration(registration){
+      if (registration.waiting) showUpdate(registration);
+      registration.addEventListener('updatefound', () => {
+        const worker = registration.installing;
+        if (!worker) return;
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdate(registration);
+          }
+        });
+      });
+    }
+
+    updateBtn.addEventListener('click', () => {
+      if (!waitingWorker) return;
+      waitingWorker.postMessage({type:'SKIP_WAITING'});
+    });
+
+    navigator.serviceWorker && navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshingForUpdate) return;
+      refreshingForUpdate = true;
+      window.location.reload();
+    });
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js', {scope:'./'})
+          .then(monitorRegistration)
+          .catch(() => {});
+      });
+    }
+
+    showInstallOption();
   </script>
 </body>
 </html>
