@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pen-portal-direct-mobile-v2';
+const CACHE_NAME = 'pen-portal-direct-mobile-v3-reload-fix';
 
 const SHELL = [
   './',
