@@ -365,7 +365,7 @@
       <iframe
         id="portalFrame"
         title="PEN Portal"
-        src="https://script.google.com/macros/s/AKfycbz4OAIXJVtUWOPUjIXz6WV4DWYLWepJsQMCshp5IKEa4efBcrtrisoXgmRqeLYfIyDicA/exec?view=login"
+        src="about:blank"
         allow="clipboard-read; clipboard-write; fullscreen; camera; microphone"
         allowfullscreen>
       </iframe>
@@ -419,6 +419,50 @@
     const frame =
       document.getElementById('portalFrame');
 
+    /*
+     * Persist the fact that this PWA has an authenticated PEN session.
+     * The actual PEN session token remains in the Apps Script origin's
+     * localStorage. The PWA stores only a boolean session-state flag.
+     */
+    const PWA_SESSION_FLAG = 'PEN_PWA_HAS_SESSION';
+
+    function pwaHasSession(){
+      try{
+        return localStorage.getItem(PWA_SESSION_FLAG) === '1';
+      }catch(error){
+        return false;
+      }
+    }
+
+    function pwaSetSession(hasSession){
+      try{
+        if(hasSession){
+          localStorage.setItem(PWA_SESSION_FLAG,'1');
+        }else{
+          localStorage.removeItem(PWA_SESSION_FLAG);
+        }
+      }catch(error){}
+    }
+
+    function openPENLogin(){
+      loading.classList.remove('hidden');
+      frame.src = PROD_URL + '?view=login';
+    }
+
+    function openPENDashboard(){
+      loading.classList.remove('hidden');
+      frame.src = PROD_URL + '?view=dashboard&t=' + Date.now();
+    }
+
+    /*
+     * This is the key reload fix.
+     * A full PWA reload no longer starts at the login route after
+     * the user has already authenticated.
+     */
+    frame.src = pwaHasSession()
+      ? (PROD_URL + '?view=dashboard&t=' + Date.now())
+      : (PROD_URL + '?view=login');
+
     const loading =
       document.getElementById('loading');
 
@@ -438,6 +482,31 @@
       document.getElementById('iosClose');
 
     let deferredInstallPrompt = null;
+
+
+    /*
+     * Communication from the embedded Apps Script portal.
+     * We only accept messages originating from our own iframe.
+     */
+    window.addEventListener('message', function(event){
+
+      if(event.source !== frame.contentWindow) return;
+
+      const data = event.data || {};
+      const type = String(data.type || '').trim();
+
+      if(type === 'PEN_LOGIN_SUCCESS'){
+        pwaSetSession(true);
+        return;
+      }
+
+      if(type === 'PEN_SESSION_INVALID'){
+        pwaSetSession(false);
+        openPENLogin();
+        return;
+      }
+
+    });
 
 
     frame.addEventListener('load', function () {
