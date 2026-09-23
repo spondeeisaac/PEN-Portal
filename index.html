@@ -425,23 +425,45 @@
      * localStorage. The PWA stores only a boolean session-state flag.
      */
     const PWA_SESSION_FLAG = 'PEN_PWA_HAS_SESSION';
+    const PWA_SESSION_TOKEN_KEY = 'PEN_PWA_SESSION_TOKEN';
+
+    function pwaGetSessionToken(){
+      try{
+        return String(localStorage.getItem(PWA_SESSION_TOKEN_KEY) || '').trim();
+      }catch(error){
+        return '';
+      }
+    }
 
     function pwaHasSession(){
       try{
-        return localStorage.getItem(PWA_SESSION_FLAG) === '1';
+        return !!pwaGetSessionToken() || localStorage.getItem(PWA_SESSION_FLAG) === '1';
       }catch(error){
         return false;
       }
     }
 
-    function pwaSetSession(hasSession){
+    function pwaSetSession(token){
       try{
-        if(hasSession){
+        token = String(token || '').trim();
+        if(token){
+          localStorage.setItem(PWA_SESSION_TOKEN_KEY, token);
           localStorage.setItem(PWA_SESSION_FLAG,'1');
         }else{
+          localStorage.removeItem(PWA_SESSION_TOKEN_KEY);
           localStorage.removeItem(PWA_SESSION_FLAG);
         }
       }catch(error){}
+    }
+
+    function buildDashboardUrl(){
+      const token = pwaGetSessionToken();
+      let url = PROD_URL + '?view=dashboard';
+      if(token){
+        url += '&token=' + encodeURIComponent(token);
+      }
+      url += '&t=' + Date.now();
+      return url;
     }
 
     function openPENLogin(){
@@ -451,7 +473,7 @@
 
     function openPENDashboard(){
       loading.classList.remove('hidden');
-      frame.src = PROD_URL + '?view=dashboard&t=' + Date.now();
+      frame.src = buildDashboardUrl();
     }
 
     /*
@@ -460,7 +482,7 @@
      * the user has already authenticated.
      */
     frame.src = pwaHasSession()
-      ? (PROD_URL + '?view=dashboard&t=' + Date.now())
+      ? buildDashboardUrl()
       : (PROD_URL + '?view=login');
 
     const loading =
@@ -496,12 +518,15 @@
       const type = String(data.type || '').trim();
 
       if(type === 'PEN_LOGIN_SUCCESS'){
-        pwaSetSession(true);
+        const token = String(data.token || '').trim();
+        if(token){
+          pwaSetSession(token);
+        }
         return;
       }
 
       if(type === 'PEN_SESSION_INVALID'){
-        pwaSetSession(false);
+        pwaSetSession('');
         openPENLogin();
         return;
       }
@@ -664,7 +689,7 @@
 
           navigator.serviceWorker
             .register(
-              './service-worker.js',
+              './service-worker.js?v=20260923-2',
               {scope: './'}
             )
             .catch(function () {});
