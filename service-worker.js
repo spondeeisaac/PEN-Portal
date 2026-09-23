@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pen-portal-direct-mobile-v3-reload-fix';
+const CACHE_NAME = 'pen-portal-direct-mobile-v4-session-token';
 
 const SHELL = [
   './',
