@@ -1,0 +1,10 @@
+{
+  "name": "PEN Field Visit App",
+  "short_name": "PEN Field Visit",
+  "start_url": "./?app=field-visits",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7f7",
+  "theme_color": "#009999",
+  "description": "Offline-first PEN field visit and GPS verification application."
+}
