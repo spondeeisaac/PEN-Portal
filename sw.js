@@ -1,4 +1,4 @@
-const CACHE_NAME = 'PEN-FIELD-VISIT-2026.6';
+const CACHE_NAME = 'PEN-FIELD-VISIT-2026.8';
 const APP_URL = new URL('./', self.location.href).href;
 const SW_URL = new URL('./sw.js', self.location.href).href;
 const MANIFEST_URL = new URL('./manifest.webmanifest', self.location.href).href;

@@ -118,7 +118,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <button class="secondary" onclick="syncQueue()">Sync Now</button>
   </div>
 
-  <footer>PEN Field Visit Offline App • Application version 2026.5</footer>
+  <footer>PEN Field Visit Offline App • Application version 2026.8</footer>
 </div>
 
 <iframe id="bridgeFrame" title="PEN secure field bridge" aria-hidden="true"></iframe>
@@ -126,7 +126,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.6';
+const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.8';
 const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026';
 const DB_VERSION=1;
 const BRIDGE_SOURCE='PEN_FIELD_VISIT_PWA_2026';
@@ -167,6 +167,7 @@ let bridgeHelloTimer=null;
 const bridgePending={};
 let syncRunning=false;
 let bridgePinged=false;
+let bridgeReadyOrigin='';
 
 function $(id){return document.getElementById(id)}
 function uid(prefix){
@@ -203,31 +204,48 @@ async function metaSet(key,value){return idbPut('meta',{key:key,value:value,upda
 function setupBridge(){
   if(!bridgeUrl)return;
   const frame=$('bridgeFrame');
+  bridgeReady=false; bridgeFrameLoaded=false; bridgeReadyOrigin='';
   frame.addEventListener('load',function(){
     bridgeFrameLoaded=true;
     bridgeReady=false;
+    bridgeReadyOrigin='';
     if(bridgeHelloTimer)clearInterval(bridgeHelloTimer);
     let tries=0;
     bridgeHelloTimer=setInterval(function(){
-      if(bridgeReady || tries++>20){clearInterval(bridgeHelloTimer);bridgeHelloTimer=null;return}
-      try{frame.contentWindow.postMessage({source:BRIDGE_SOURCE,type:'HELLO',origin:location.origin},'*');}catch(_){}
-    },500);
-  });
+      if(bridgeReady || tries++>30){clearInterval(bridgeHelloTimer);bridgeHelloTimer=null;return}
+      try{frame.contentWindow.postMessage({source:BRIDGE_SOURCE,type:'HELLO',origin:location.origin,appVersion:APP_VERSION},'*');}catch(_){}
+    },300);
+  },{once:false});
   const url=bridgeUrl+(bridgeUrl.indexOf('?')>=0?'&':'?')+'view=field-visit-bridge&origin='+encodeURIComponent(location.origin);
   frame.src=url;
 }
 window.addEventListener('message',function(event){
   const d=event.data||{};
   if(d.source!==BRIDGE_SOURCE)return;
-  if(event.source!==$('bridgeFrame').contentWindow)return;
-  if(d.type==='READY'){bridgeReady=true;if(bridgeHelloTimer){clearInterval(bridgeHelloTimer);bridgeHelloTimer=null}return}
+  const sourceWin=$('bridgeFrame').contentWindow;
+  if(d.type==='READY'){
+    // Do not depend on a strict WindowProxy identity; Apps Script may cross an origin redirect.
+    if(event.source && sourceWin && event.source!==sourceWin)return;
+    bridgeReady=true;
+    bridgeReadyOrigin=event.origin||'';
+    if(bridgeHelloTimer){clearInterval(bridgeHelloTimer);bridgeHelloTimer=null}
+    return;
+  }
   if(d.type==='RESPONSE'){
     const cb=bridgePending[d.requestId];if(!cb)return;
     delete bridgePending[d.requestId];
     d.success?cb.resolve(d.result):cb.reject(new Error(d.error||'Server request failed.'));
   }
 });
-function waitBridge(){return new Promise(function(resolve,reject){let n=0;if(!bridgeUrl){reject(new Error('The PEN server bridge is not configured.'));return}if(bridgeFrameLoaded){try{$('bridgeFrame').contentWindow.postMessage({source:BRIDGE_SOURCE,type:'HELLO',origin:location.origin},'*')}catch(_){}}const t=setInterval(function(){if(bridgeFrameLoaded || bridgeReady){clearInterval(t);resolve()}else if(++n>150){clearInterval(t);reject(new Error('The PEN server bridge did not load.'))}},100)})}
+function waitBridge(){return new Promise(function(resolve,reject){
+  let n=0;
+  if(!bridgeUrl){reject(new Error('The PEN server bridge is not configured.'));return}
+  if(!bridgeFrameLoaded)setupBridge();
+  const t=setInterval(function(){
+    if(bridgeReady){clearInterval(t);resolve(true)}
+    else if(++n>200){clearInterval(t);reject(new Error('The PEN server bridge did not complete its secure handshake.'))}
+  },100);
+})}
 async function bridgeCall(action,args){
   if(!online())throw new Error('Internet connection is unavailable.');
   if(!bridgeUrl)throw new Error('The PEN server bridge is not configured.');
@@ -235,8 +253,9 @@ async function bridgeCall(action,args){
   const requestId=uid('REQ');
   return new Promise(function(resolve,reject){
     bridgePending[requestId]={resolve:resolve,reject:reject};
-    $('bridgeFrame').contentWindow.postMessage({source:BRIDGE_SOURCE,type:'REQUEST',requestId:requestId,action:action,args:Array.isArray(args)?args:[]},'*');
-    setTimeout(function(){if(bridgePending[requestId]){delete bridgePending[requestId];reject(new Error('The PEN server request timed out.'))}},45000);
+    try{$('bridgeFrame').contentWindow.postMessage({source:BRIDGE_SOURCE,type:'REQUEST',requestId:requestId,action:action,args:Array.isArray(args)?args:[]},'*');}
+    catch(e){delete bridgePending[requestId];reject(e);return}
+    setTimeout(function(){if(bridgePending[requestId]){delete bridgePending[requestId];reject(new Error('The PEN server request timed out.'))}},30000);
   });
 }
 
