@@ -126,11 +126,11 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.5';
+const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.6';
 const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026';
 const DB_VERSION=1;
 const BRIDGE_SOURCE='PEN_FIELD_VISIT_PWA_2026';
-const DEFAULT_BRIDGE_URL='';
+const DEFAULT_BRIDGE_URL='https://script.google.com/macros/s/AKfycbz4OAIXJVtUWOPUjIXz6WV4DWYLWepJsQMCshp5IKEa4efBcrtrisoXgmRqeLYfIyDicA/exec';
 const p=new URLSearchParams(location.search);
 const legacyMode=['CHECK_IN','CHECK_OUT'].indexOf(String(p.get('mode')||'').toUpperCase())>=0 && !p.get('app');
 if(legacyMode){
@@ -166,6 +166,7 @@ let bridgeFrameLoaded=false;
 let bridgeHelloTimer=null;
 const bridgePending={};
 let syncRunning=false;
+let bridgePinged=false;
 
 function $(id){return document.getElementById(id)}
 function uid(prefix){
@@ -226,7 +227,7 @@ window.addEventListener('message',function(event){
     d.success?cb.resolve(d.result):cb.reject(new Error(d.error||'Server request failed.'));
   }
 });
-function waitBridge(){return new Promise(function(resolve,reject){let n=0;if(bridgeFrameLoaded&&!bridgeReady){try{$('bridgeFrame').contentWindow.postMessage({source:BRIDGE_SOURCE,type:'HELLO',origin:location.origin},'*')}catch(_){}}const t=setInterval(function(){if(bridgeReady){clearInterval(t);resolve()}else if(++n>80){clearInterval(t);reject(new Error('Secure PEN server bridge did not start. The GitHub PWA could not establish the secure connection to the PEN Apps Script backend.'))}},100)})}
+function waitBridge(){return new Promise(function(resolve,reject){let n=0;if(!bridgeUrl){reject(new Error('The PEN server bridge is not configured.'));return}if(bridgeFrameLoaded){try{$('bridgeFrame').contentWindow.postMessage({source:BRIDGE_SOURCE,type:'HELLO',origin:location.origin},'*')}catch(_){}}const t=setInterval(function(){if(bridgeFrameLoaded || bridgeReady){clearInterval(t);resolve()}else if(++n>150){clearInterval(t);reject(new Error('The PEN server bridge did not load.'))}},100)})}
 async function bridgeCall(action,args){
   if(!online())throw new Error('Internet connection is unavailable.');
   if(!bridgeUrl)throw new Error('The PEN server bridge is not configured.');
@@ -435,14 +436,15 @@ async function initialLoad(){
 
     if(online()&&bridgeUrl){
       try{
+        await bridgeCall('PING',[]); bridgePinged=true;
         let bundle;
         if(normalToken)bundle=await bridgeCall('PROVISION',[normalToken]);
         else if(offlineToken)bundle=await bridgeCall('GET_BUNDLE',[offlineToken]);
         if(bundle){await saveBundle(bundle);setMessage('Offline field access is ready. '+schools.length+' assigned school(s) are available on this device.','ok');$('visitCard').classList.remove('hidden');$('setupCard').classList.add('hidden')}
         else throw new Error('No offline bundle was received.');
       }catch(e){
-        if(schools.length){$('visitCard').classList.remove('hidden');$('setupCard').classList.add('hidden');setMessage('Using the school data already stored on this device. Server refresh is currently unavailable.','warn')}
-        else{$('setupCard').classList.remove('hidden');setMessage('Open this app from the PEN Portal while online to prepare offline access.','warn')}
+        if(schools.length){$('visitCard').classList.remove('hidden');$('setupCard').classList.add('hidden');setMessage('Using the school data already stored on this device. Server refresh is currently unavailable: '+(e.message||e),'warn')}
+        else{$('setupCard').classList.remove('hidden');setMessage('Secure PEN server bridge could not be reached: '+(e.message||e),'bad')}
       }
     }else if(schools.length){$('visitCard').classList.remove('hidden');$('setupCard').classList.add('hidden');setMessage('Offline mode is active. Your cached school data is available.','warn')}
     else{$('setupCard').classList.remove('hidden');setMessage('This device is offline and has no prepared field-access package yet.','warn')}
