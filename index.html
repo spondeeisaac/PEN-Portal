@@ -126,7 +126,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.2';
+const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.4';
 const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026';
 const DB_VERSION=1;
 const BRIDGE_SOURCE='PEN_FIELD_VISIT_PWA_2026';
@@ -214,7 +214,7 @@ window.addEventListener('message',function(event){
     d.success?cb.resolve(d.result):cb.reject(new Error(d.error||'Server request failed.'));
   }
 });
-function waitBridge(){return new Promise(function(resolve,reject){let n=0;const t=setInterval(function(){if(bridgeReady){clearInterval(t);resolve()}else if(++n>100){clearInterval(t);reject(new Error('Secure PEN server bridge did not start.'))}},100)})}
+function waitBridge(){return new Promise(function(resolve,reject){let n=0;const t=setInterval(function(){if(bridgeReady){clearInterval(t);resolve()}else if(++n>120){clearInterval(t);reject(new Error('Secure PEN server bridge did not start. The GitHub PWA could not establish the secure connection to the PEN Apps Script backend.'))}},100)})}
 async function bridgeCall(action,args){
   if(!online())throw new Error('Internet connection is unavailable.');
   if(!bridgeUrl)throw new Error('The PEN server bridge is not configured.');
@@ -400,12 +400,12 @@ window.refreshOfflineData=async function(){
   $('refreshBtn').disabled=true;setMessage('Refreshing your offline school list and access package...','');
   try{
     let bundle;
-    try{bundle=await bridgeCall('REFRESH',[offlineToken])}
+    try{bundle=normalToken?await bridgeCall('PROVISION',[normalToken]):await bridgeCall('GET_BUNDLE',[offlineToken])}
     catch(e){
-      setMessage('Offline access may have expired. Open Field Visits from the PEN Portal while online to renew it. Existing local data has not been deleted.','warn');throw e
+      setMessage('Offline data refresh failed: '+(e&&e.message?e.message:String(e))+'. Your existing local data has not been deleted.','bad');throw e
     }
     await saveBundle(bundle);setMessage('Offline data refreshed. '+schools.length+' assigned school(s) are cached on this device.','ok');await renderQueue();
-  }catch(e){/* message already shown */}
+  }catch(e){/* detailed message already shown */}
   finally{$('refreshBtn').disabled=false}
 };
 
