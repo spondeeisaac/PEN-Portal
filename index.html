@@ -118,7 +118,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <button class="secondary" onclick="syncQueue()">Sync Now</button>
   </div>
 
-  <footer>PEN Field Visit Offline App • Application version 2026.2</footer>
+  <footer>PEN Field Visit Offline App • Application version 2026.5</footer>
 </div>
 
 <iframe id="bridgeFrame" title="PEN secure field bridge" aria-hidden="true"></iframe>
@@ -126,7 +126,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.4';
+const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.5';
 const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026';
 const DB_VERSION=1;
 const BRIDGE_SOURCE='PEN_FIELD_VISIT_PWA_2026';
@@ -162,6 +162,8 @@ let activeVisit=null;
 let deferredInstallPrompt=null;
 let dbPromise=null;
 let bridgeReady=false;
+let bridgeFrameLoaded=false;
+let bridgeHelloTimer=null;
 const bridgePending={};
 let syncRunning=false;
 
@@ -200,6 +202,16 @@ async function metaSet(key,value){return idbPut('meta',{key:key,value:value,upda
 function setupBridge(){
   if(!bridgeUrl)return;
   const frame=$('bridgeFrame');
+  frame.addEventListener('load',function(){
+    bridgeFrameLoaded=true;
+    bridgeReady=false;
+    if(bridgeHelloTimer)clearInterval(bridgeHelloTimer);
+    let tries=0;
+    bridgeHelloTimer=setInterval(function(){
+      if(bridgeReady || tries++>20){clearInterval(bridgeHelloTimer);bridgeHelloTimer=null;return}
+      try{frame.contentWindow.postMessage({source:BRIDGE_SOURCE,type:'HELLO',origin:location.origin},'*');}catch(_){}
+    },500);
+  });
   const url=bridgeUrl+(bridgeUrl.indexOf('?')>=0?'&':'?')+'view=field-visit-bridge&origin='+encodeURIComponent(location.origin);
   frame.src=url;
 }
@@ -207,14 +219,14 @@ window.addEventListener('message',function(event){
   const d=event.data||{};
   if(d.source!==BRIDGE_SOURCE)return;
   if(event.source!==$('bridgeFrame').contentWindow)return;
-  if(d.type==='READY'){bridgeReady=true;return}
+  if(d.type==='READY'){bridgeReady=true;if(bridgeHelloTimer){clearInterval(bridgeHelloTimer);bridgeHelloTimer=null}return}
   if(d.type==='RESPONSE'){
     const cb=bridgePending[d.requestId];if(!cb)return;
     delete bridgePending[d.requestId];
     d.success?cb.resolve(d.result):cb.reject(new Error(d.error||'Server request failed.'));
   }
 });
-function waitBridge(){return new Promise(function(resolve,reject){let n=0;const t=setInterval(function(){if(bridgeReady){clearInterval(t);resolve()}else if(++n>120){clearInterval(t);reject(new Error('Secure PEN server bridge did not start. The GitHub PWA could not establish the secure connection to the PEN Apps Script backend.'))}},100)})}
+function waitBridge(){return new Promise(function(resolve,reject){let n=0;if(bridgeFrameLoaded&&!bridgeReady){try{$('bridgeFrame').contentWindow.postMessage({source:BRIDGE_SOURCE,type:'HELLO',origin:location.origin},'*')}catch(_){}}const t=setInterval(function(){if(bridgeReady){clearInterval(t);resolve()}else if(++n>80){clearInterval(t);reject(new Error('Secure PEN server bridge did not start. The GitHub PWA could not establish the secure connection to the PEN Apps Script backend.'))}},100)})}
 async function bridgeCall(action,args){
   if(!online())throw new Error('Internet connection is unavailable.');
   if(!bridgeUrl)throw new Error('The PEN server bridge is not configured.');
