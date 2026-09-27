@@ -270,7 +270,11 @@ function getToken(){
 
   window.addEventListener('message',function(event){
     const d=event&&event.data||{};
-    if(!d || d.source!=='PEN_LOGIN_2026' || !ALLOWED_APPS_SCRIPT_ORIGINS.has(event.origin))return;
+    if(!d || d.source!=='PEN_LOGIN_2026')return;
+    // Apps Script HTMLService may deliver postMessage from its sandbox with an opaque ('null') origin.
+    // The token is validated server-side when the dashboard loads, so accepting this specific
+    // login message is safe and prevents the GitHub shell from rejecting a genuine login handoff.
+    if(event.origin!=='null' && !ALLOWED_APPS_SCRIPT_ORIGINS.has(event.origin))return;
     if(d.type==='PEN_LOGIN_AUTHENTICATED' || d.type==='PEN_LOGIN_SUCCESS'){
       if(d.token)saveToken(d.token,d.account||null);
       if(d.type==='PEN_LOGIN_SUCCESS' && d.token)showDashboard(String(d.token));
