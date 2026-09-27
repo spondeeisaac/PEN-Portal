@@ -181,6 +181,19 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
   const frame=document.getElementById('mainPortalFrame');
   const loading=document.getElementById('mainPortalLoading');
   const params=new URLSearchParams(window.location.search);
+
+  // Accept a session token returned by the standalone Apps Script login.
+  // This is only a fallback; normal GitHub-embedded login uses postMessage.
+  try{
+    const handoffToken=String(params.get('token')||params.get('sessionToken')||'').trim();
+    if(handoffToken){
+      localStorage.setItem('PEN_SESSION_TOKEN',handoffToken);
+      params.delete('token');
+      params.delete('sessionToken');
+      const clean=window.location.pathname+(params.toString()?'?'+params.toString():'')+window.location.hash;
+      window.history.replaceState({},document.title,clean);
+    }
+  }catch(e){}
   const isFieldVisit=String(params.get('app')||'').toLowerCase()===FIELD_VISIT_PARAM || ['CHECK_IN','CHECK_OUT'].includes(String(params.get('mode')||'').toUpperCase());
   const fieldShell=document.getElementById('fieldVisitShell');
 
