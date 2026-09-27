@@ -177,6 +177,10 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
   const MAIN_PORTAL_URL='https://script.google.com/macros/s/AKfycbz4OAIXJVtUWOPUjIXz6WV4DWYLWepJsQMCshp5IKEa4efBcrtrisoXgmRqeLYfIyDicA/exec';
   const FIELD_VISIT_PARAM='field-visits';
   const APPS_SCRIPT_ORIGIN=new URL(MAIN_PORTAL_URL).origin;
+  const ALLOWED_APPS_SCRIPT_ORIGINS=new Set([
+    APPS_SCRIPT_ORIGIN,
+    'https://script.googleusercontent.com'
+  ]);
   const shell=document.getElementById('mainPortalShell');
   const frame=document.getElementById('mainPortalFrame');
   const loading=document.getElementById('mainPortalLoading');
@@ -266,7 +270,7 @@ function getToken(){
 
   window.addEventListener('message',function(event){
     const d=event&&event.data||{};
-    if(!d || d.source!=='PEN_LOGIN_2026' || event.origin!==APPS_SCRIPT_ORIGIN)return;
+    if(!d || d.source!=='PEN_LOGIN_2026' || !ALLOWED_APPS_SCRIPT_ORIGINS.has(event.origin))return;
     if(d.type==='PEN_LOGIN_AUTHENTICATED' || d.type==='PEN_LOGIN_SUCCESS'){
       if(d.token)saveToken(d.token,d.account||null);
       if(d.type==='PEN_LOGIN_SUCCESS' && d.token)showDashboard(String(d.token));
@@ -276,7 +280,7 @@ function getToken(){
 
   window.addEventListener('message',function(event){
     const d=event&&event.data||{};
-    if(!d || event.origin!==APPS_SCRIPT_ORIGIN)return;
+    if(!d || !ALLOWED_APPS_SCRIPT_ORIGINS.has(event.origin))return;
     if(d.type==='PEN_SESSION_INVALID'){
       showLogin();
     }
