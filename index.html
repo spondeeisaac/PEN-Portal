@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#009999">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>PEN Field Visit App</title>
+<title>PEN Portal</title>
 <style>
 :root{--teal:#009999;--turq:#34ADAD;--yellow:#FECE2F;--orange:#FFAB40;--ink:#18383b;--muted:#667777;--bg:#f4f7f7;--card:#fff;--line:#d6e0e1;--ok:#e8f6f3;--warn:#fff5cf;--bad:#fff0e8;--danger:#9a2c2c}
 *{box-sizing:border-box}
@@ -195,6 +195,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     }
   }catch(e){}
   const isFieldVisit=String(params.get('app')||'').toLowerCase()===FIELD_VISIT_PARAM || ['CHECK_IN','CHECK_OUT'].includes(String(params.get('mode')||'').toUpperCase());
+  document.title = isFieldVisit ? 'PEN Field Visit App' : 'PEN Portal';
   const fieldShell=document.getElementById('fieldVisitShell');
 
   function captureUrlSessionToken(){
