@@ -181,6 +181,8 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
   const frame=document.getElementById('mainPortalFrame');
   const loading=document.getElementById('mainPortalLoading');
   const params=new URLSearchParams(window.location.search);
+  let sessionRetryCount=0;
+  let sessionRetryTimer=null;
   const isFieldVisit=String(params.get('app')||'').toLowerCase()===FIELD_VISIT_PARAM || ['CHECK_IN','CHECK_OUT'].includes(String(params.get('mode')||'').toUpperCase());
   const fieldShell=document.getElementById('fieldVisitShell');
 
@@ -205,8 +207,8 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     frame.src=url;
     frame.onload=function(){loading.style.display='none';frame.style.display='block'};
   }
-  function showLogin(){
-    clearToken();
+  function showLogin(clearStoredSession=true){
+    if(clearStoredSession)clearToken();
     const u=new URL(MAIN_PORTAL_URL);
     u.searchParams.set('view','login');
     u.searchParams.set('embedded','1');
@@ -225,6 +227,8 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     const d=event&&event.data||{};
     if(!d || d.source!=='PEN_LOGIN_2026' || event.origin!==APPS_SCRIPT_ORIGIN)return;
     if(d.type==='PEN_LOGIN_AUTHENTICATED' || d.type==='PEN_LOGIN_SUCCESS'){
+      sessionRetryCount=0;
+      if(sessionRetryTimer){clearTimeout(sessionRetryTimer);sessionRetryTimer=null;}
       if(d.token)saveToken(d.token,d.account||null);
       if(d.type==='PEN_LOGIN_SUCCESS' && d.token)showDashboard(String(d.token));
       return;
@@ -235,7 +239,24 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     const d=event&&event.data||{};
     if(!d || event.origin!==APPS_SCRIPT_ORIGIN)return;
     if(d.type==='PEN_SESSION_INVALID'){
-      showLogin();
+      const token=getToken();
+      if(!token){
+        showLogin(true);
+        return;
+      }
+      if(sessionRetryCount<3){
+        sessionRetryCount++;
+        const retryToken=token;
+        const delay=500*sessionRetryCount;
+        if(sessionRetryTimer)clearTimeout(sessionRetryTimer);
+        sessionRetryTimer=setTimeout(function(){
+          sessionRetryTimer=null;
+          if(getToken()===retryToken)showDashboard(retryToken);
+        },delay);
+        return;
+      }
+      sessionRetryCount=0;
+      showLogin(true);
     }
   });
 
@@ -246,8 +267,10 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
   }
 
   if(fieldShell)fieldShell.style.display='none';
+  const urlToken=String(params.get('token')||params.get('sessionToken')||'').trim();
+  if(urlToken)saveToken(urlToken,null);
   const token=getToken();
-  if(token)showDashboard(token);else showLogin();
+  if(token)showDashboard(token);else showLogin(true);
 })();
 </script>
 
