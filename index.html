@@ -25,6 +25,12 @@ button.secondary{background:#4b6265}button.warn{background:#947000}button.danger
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{width:auto;min-width:160px}
 .gps{font-family:monospace;white-space:pre-wrap;background:#f4f7f7;border-radius:9px;padding:12px;font-size:12px;line-height:1.55}
 .queue{padding:11px;border-radius:9px;background:var(--warn);font-size:13px}.hidden{display:none!important}
+
+.portal-return{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;}
+.portal-return .return-title{font-size:12px;color:#607174;line-height:1.4;flex:1;}
+.portal-return button{width:auto;min-width:190px;margin-top:0;background:#234044;color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;}
+.portal-return button:hover{filter:brightness(.95);}
+@media(max-width:560px){.portal-return{display:block;}.portal-return button{width:100%;margin-top:8px;}}
 .metric{background:#f8fafb;border:1px solid var(--line);border-radius:9px;padding:11px}.metric strong{display:block;font-size:20px;margin-top:4px}
 hr{border:0;border-top:1px solid var(--line);margin:15px 0}
 .install{display:none}
@@ -48,6 +54,10 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
         <span id="connectionPill" class="pill">Checking connection...</span>
         <span id="syncPill" class="pill">Not synced</span>
       </div>
+    </div>
+    <div class="portal-return">
+      <div class="return-title">Finished with the field visit module? Return to the main PEN Cascade Portal.</div>
+      <button type="button" onclick="returnToMainPortal()">← Back to Main Portal</button>
     </div>
     <div id="appMessage" class="status" style="margin-top:10px">Starting secure field access...</div>
     <div id="accessMetrics" class="grid" style="margin-top:10px">
@@ -126,6 +136,11 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <div id="queueInfo" class="queue">No pending offline records.</div>
     <div class="small" style="margin-top:8px">Records remain on this device until the PEN server confirms successful synchronization. Closing the browser does not delete the queue.</div>
     <button class="secondary" onclick="syncQueue()">Sync Now</button>
+  </div>
+
+  <div class="portal-return bottom">
+    <div class="return-title">Return to the main PEN Cascade Portal when you are finished.</div>
+    <button type="button" onclick="returnToMainPortal()">← Back to Main Portal</button>
   </div>
 
   <footer>PEN Field Visit Offline App • Application version 2026.13</footer>
@@ -477,6 +492,19 @@ window.refreshOfflineData=async function(){
   }catch(e){setMessage('Offline data refresh failed: '+(e&&e.message?e.message:String(e))+'. Your existing local data has not been deleted.','bad')}
   finally{$('refreshBtn').disabled=false}
 };
+
+function returnToMainPortal(){
+  const portalUrl='https://www.practicaleducationnetwork.com/portal';
+  try{
+    if(window.opener && !window.opener.closed){
+      try{
+        window.opener.postMessage({source:'PEN_FIELD_VISIT_PWA_2026',type:'RETURN_TO_PORTAL'},portalOrigin||'*');
+      }catch(_){}
+    }
+  }catch(_){}
+  window.location.href=portalUrl;
+}
+window.returnToMainPortal=returnToMainPortal;
 
 async function initialLoad(){
   connectionUI();
