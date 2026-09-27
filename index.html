@@ -269,12 +269,7 @@ function getToken(){
   }
 
   window.addEventListener('message',function(event){
-    let d=event&&event.data||{};
-    // Be tolerant if an intermediate Apps Script sandbox serialises
-    // the postMessage payload as JSON text.
-    if(typeof d==='string'){
-      try{d=JSON.parse(d);}catch(_){}
-    }
+    const d=event&&event.data||{};
     if(!d || d.source!=='PEN_LOGIN_2026')return;
     // Apps Script HTMLService may deliver postMessage from its sandbox with an opaque ('null') origin.
     // The token is validated server-side when the dashboard loads, so accepting this specific
