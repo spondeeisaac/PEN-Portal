@@ -1,695 +1,704 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#009999">
-<link rel="manifest" href="./manifest.webmanifest">
-<title>PEN Field Visit App</title>
-<style>
-:root{--teal:#009999;--turq:#34ADAD;--yellow:#FECE2F;--orange:#FFAB40;--ink:#18383b;--muted:#667777;--bg:#f4f7f7;--card:#fff;--line:#d6e0e1;--ok:#e8f6f3;--warn:#fff5cf;--bad:#fff0e8;--danger:#9a2c2c}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Arial,sans-serif}
-body{padding-bottom:30px}
-.wrap{max-width:860px;margin:0 auto;padding:16px}
-.card{background:var(--card);border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 2px 10px rgba(0,0,0,.06)}
-h1{font-size:23px;margin:0 0 6px}h2{font-size:18px;margin:0 0 10px}
-.small{font-size:13px;color:var(--muted);line-height:1.5}.label{display:block;font-weight:700;margin:10px 0 6px;font-size:13px}
-select,input,textarea,button{width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;font:inherit}
-textarea{min-height:92px;resize:vertical}
-button{border:0;background:var(--teal);color:#fff;font-weight:700;cursor:pointer;margin-top:10px}
-button.secondary{background:#4b6265}button.warn{background:#947000}button.danger{background:var(--danger)}button:disabled{opacity:.55;cursor:not-allowed}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}@media(max-width:640px){.grid{grid-template-columns:1fr}}
-.status{padding:11px;border-radius:9px;line-height:1.45;background:var(--ok);font-size:13px}.status.warn{background:var(--warn)}.status.bad{background:var(--bad)}
-.pill{display:inline-block;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#edf1f2;margin-right:6px}.online{background:var(--ok);color:#0a6767}.offline{background:var(--warn);color:#6f5600}.syncing{background:#e6eef5;color:#32566c}
-.row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{width:auto;min-width:160px}
-.gps{font-family:monospace;white-space:pre-wrap;background:#f4f7f7;border-radius:9px;padding:12px;font-size:12px;line-height:1.55}
-.queue{padding:11px;border-radius:9px;background:var(--warn);font-size:13px}.hidden{display:none!important}
+  <meta charset="utf-8">
+  <meta name="viewport"
+        content="width=device-width,initial-scale=1,viewport-fit=cover">
 
-.portal-return{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;}
-.portal-return .return-title{font-size:12px;color:#607174;line-height:1.4;flex:1;}
-.portal-return button{width:auto;min-width:190px;margin-top:0;background:#234044;color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;}
-.portal-return button:hover{filter:brightness(.95);}
-@media(max-width:560px){.portal-return{display:block;}.portal-return button{width:100%;margin-top:8px;}}
-.metric{background:#f8fafb;border:1px solid var(--line);border-radius:9px;padding:11px}.metric strong{display:block;font-size:20px;margin-top:4px}
-hr{border:0;border-top:1px solid var(--line);margin:15px 0}
-.install{display:none}
-footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
+  <meta name="theme-color" content="#0B6768">
+  <meta name="application-name" content="PEN Portal">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="PEN Portal">
 
-/* MAIN PEN PORTAL SHELL */
-#mainPortalShell{display:none;position:fixed;inset:0;background:#fff;z-index:99999;overflow:hidden}
-#mainPortalFrame{display:none;width:100%;height:100%;border:0;background:#fff}
-.main-portal-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#fff}
-.main-portal-loading-card{text-align:center;padding:28px}
-.main-portal-logo{width:58px;height:58px;margin:0 auto 14px;border-radius:12px;background:#009999;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-family:Arial,sans-serif;font-size:18px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
-.main-portal-loading-title{font-family:Arial,sans-serif;font-size:22px;font-weight:800;color:#006b6b}
-.main-portal-loading-text{margin-top:7px;font-family:Arial,sans-serif;font-size:13px;color:#667777}
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon"
+        href="./icons/icon-192.png"
+        sizes="192x192"
+        type="image/png">
+  <link rel="apple-touch-icon"
+        href="./icons/apple-touch-icon.png">
 
-</style>
+  <title>PEN Portal</title>
+
+  <style>
+    :root{
+      --teal:#0B6768;
+      --teal-light:#179A99;
+      --yellow:#FAD00F;
+      --ink:#123B43;
+      --muted:#61777B;
+      --bg:#F4F7F7;
+      --line:#D6E2E3;
+      --white:#FFFFFF;
+    }
+
+    *{box-sizing:border-box}
+
+    html,
+    body{
+      width:100%;
+      height:100%;
+      margin:0;
+      padding:0;
+      overflow:hidden;
+      background:var(--bg);
+      font-family:Arial,Helvetica,sans-serif;
+      color:var(--ink);
+    }
+
+    body{
+      padding-top:env(safe-area-inset-top);
+      padding-bottom:env(safe-area-inset-bottom);
+    }
+
+    .app{
+      width:100%;
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      background:var(--bg);
+    }
+
+    .app-bar{
+      flex:0 0 52px;
+      height:52px;
+      min-height:52px;
+      background:var(--teal);
+      color:var(--white);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:0 10px;
+      box-shadow:0 1px 5px rgba(0,0,0,.18);
+      z-index:5;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:9px;
+      min-width:0;
+    }
+
+    .brand-logo{
+      width:34px;
+      height:34px;
+      flex:0 0 34px;
+      border-radius:9px;
+      background:#fff;
+      object-fit:contain;
+      padding:2px;
+    }
+
+    .brand-name{
+      min-width:0;
+      font-size:15px;
+      font-weight:800;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .actions{
+      display:flex;
+      align-items:center;
+      gap:5px;
+      flex-shrink:0;
+    }
+
+    .action{
+      height:36px;
+      min-width:36px;
+      padding:0 9px;
+      border:0;
+      border-radius:8px;
+      background:transparent;
+      color:#fff;
+      font-size:13px;
+      font-weight:800;
+      cursor:pointer;
+    }
+
+    .action:active{
+      background:rgba(255,255,255,.14);
+    }
+
+    .install{
+      display:none;
+      background:var(--yellow);
+      color:var(--ink);
+    }
+
+    .install.show{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .portal-wrap{
+      position:relative;
+      flex:1 1 auto;
+      min-height:0;
+      width:100%;
+      background:#fff;
+    }
+
+    #portalFrame{
+      display:block;
+      width:100%;
+      height:100%;
+      border:0;
+      background:#fff;
+    }
+
+    .loading{
+      position:absolute;
+      inset:0;
+      z-index:4;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#fff;
+      transition:opacity .22s ease;
+      pointer-events:none;
+    }
+
+    .loading.hidden{
+      opacity:0;
+    }
+
+    .loading-inner{
+      text-align:center;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .spinner{
+      width:32px;
+      height:32px;
+      margin:0 auto 11px;
+      border:3px solid #D9E6E6;
+      border-top-color:var(--teal-light);
+      border-radius:50%;
+      animation:spin .8s linear infinite;
+    }
+
+    @keyframes spin{
+      to{transform:rotate(360deg)}
+    }
+
+    .offline{
+      position:absolute;
+      left:10px;
+      right:10px;
+      bottom:10px;
+      z-index:7;
+      display:none;
+      padding:9px 11px;
+      border:1px solid #E9D86B;
+      border-radius:10px;
+      background:#FFF7D1;
+      color:#6E5D00;
+      font-size:12px;
+      line-height:1.45;
+      box-shadow:0 4px 16px rgba(0,0,0,.08);
+    }
+
+    .offline.show{
+      display:block;
+    }
+
+    .ios-help{
+      position:absolute;
+      inset:0;
+      z-index:20;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:14px;
+      background:rgba(0,0,0,.45);
+    }
+
+    .ios-help.show{
+      display:flex;
+    }
+
+    .ios-card{
+      width:min(460px,100%);
+      max-height:90%;
+      overflow:auto;
+      padding:21px;
+      border-radius:18px;
+      background:#fff;
+      box-shadow:0 18px 55px rgba(0,0,0,.25);
+    }
+
+    .ios-card h2{
+      margin:0 0 8px;
+      font-size:21px;
+      color:var(--ink);
+    }
+
+    .ios-card p{
+      margin:0 0 12px;
+      font-size:14px;
+      line-height:1.55;
+      color:var(--muted);
+    }
+
+    .step{
+      margin:8px 0;
+      padding:10px 11px;
+      border:1px solid #E2ECEC;
+      border-radius:9px;
+      background:#F4F7F7;
+      font-size:14px;
+      line-height:1.45;
+    }
+
+    .close{
+      width:100%;
+      margin-top:12px;
+      padding:12px;
+      border:0;
+      border-radius:9px;
+      background:var(--teal);
+      color:#fff;
+      font-weight:800;
+      cursor:pointer;
+    }
+
+    @media (max-width:600px){
+      .app-bar{
+        flex-basis:50px;
+        height:50px;
+        min-height:50px;
+        padding:0 8px;
+      }
+
+      .brand-logo{
+        width:32px;
+        height:32px;
+        flex-basis:32px;
+      }
+
+      .brand-name{
+        font-size:14px;
+      }
+
+      .action{
+        height:34px;
+        min-width:34px;
+        padding:0 7px;
+      }
+    }
+
+    @media (max-width:380px){
+      .brand-name{
+        max-width:120px;
+      }
+
+      .install{
+        padding:0 8px;
+      }
+    }
+
+    @media (orientation:landscape) and (max-width:900px){
+      .app-bar{
+        flex-basis:46px;
+        height:46px;
+        min-height:46px;
+      }
+
+      .brand-logo{
+        width:29px;
+        height:29px;
+        flex-basis:29px;
+      }
+    }
+  </style>
 </head>
+
 <body>
+  <div class="app">
 
-<div id="mainPortalShell">
-  <div id="mainPortalLoading" class="main-portal-loading">
-    <div class="main-portal-loading-card">
-      <div class="main-portal-logo">PEN</div>
-      <div class="main-portal-loading-title">PEN Cascade Portal</div>
-      <div class="main-portal-loading-text">Loading secure portal...</div>
-    </div>
-  </div>
-  <iframe id="mainPortalFrame" title="PEN Cascade Portal" frameborder="0" allow="clipboard-read; clipboard-write"></iframe>
-</div>
-
-<div id="fieldVisitShell">
-<div id="legacyCaptureApp" class="wrap hidden">
-  <div class="card"><h1>PEN GPS Field Visit Capture</h1><div id="legacyModeText" class="small">Secure GPS capture for PEN field visit verification.</div><div id="legacySchoolInfo" class="status">Loading visit information...</div></div>
-  <div class="card"><h2 id="legacyStatusTitle">Ready to capture GPS</h2><div id="legacyStatus" class="status">This page can capture device GPS and return it to the PEN Portal.</div><div id="legacyGpsBox" class="gps">GPS not captured yet.</div><button id="legacyCaptureBtn">Capture GPS &amp; Return to PEN</button></div>
-</div>
-
-<div id="pwaApp" class="wrap">
-  <div class="card">
-    <div class="row">
-      <div>
-        <h1>PEN Field Visit App</h1>
-        <div class="small">Offline-first field visit verification for Master Trainers and Field Support Officers.</div>
+    <header class="app-bar">
+      <div class="brand">
+        <img
+          class="brand-logo"
+          src="./icons/icon-192.png"
+          alt="Practical Education Network">
+        <span class="brand-name">PEN Portal</span>
       </div>
-      <div>
-        <span id="connectionPill" class="pill">Checking connection...</span>
-        <span id="syncPill" class="pill">Not synced</span>
+
+      <div class="actions">
+        <button
+          id="installBtn"
+          class="action install"
+          type="button">
+          Install
+        </button>
+
+        <button
+          id="refreshBtn"
+          class="action"
+          type="button"
+          aria-label="Refresh portal"
+          title="Refresh">
+          ↻
+        </button>
       </div>
-    </div>
-    <div class="portal-return">
-      <div class="return-title">Finished with the field visit module? Return to the main PEN Cascade Portal.</div>
-      <button type="button" onclick="returnToMainPortal()">← Back to Main Portal</button>
-    </div>
-    <div id="appMessage" class="status" style="margin-top:10px">Starting secure field access...</div>
-    <div id="accessMetrics" class="grid" style="margin-top:10px">
-      <div class="metric"><div class="small">Pending local actions</div><strong id="pendingCount">0</strong></div>
-      <div class="metric"><div class="small">Schools cached</div><strong id="schoolCount">0</strong></div>
-      <div class="metric"><div class="small">Last sync</div><strong id="lastSync">Never</strong></div>
-      <div class="metric"><div class="small">Access expires</div><strong id="expiry">—</strong></div>
-    </div>
-    <div class="actions" style="margin-top:8px">
-      <button id="refreshBtn" class="secondary" onclick="refreshOfflineData()">Refresh Offline Data</button>
-      <button id="syncBtn" onclick="syncQueue()">Sync Pending Records</button>
-      <button id="installBtn" class="secondary install" onclick="installApp()">Install PEN Field Visit App</button>
-      <button id="installHelpBtn" class="secondary" onclick="showInstallHelp()">How to Install</button>
-    </div>
-    <div id="installStatus" class="small" style="margin-top:8px"></div>
+    </header>
+
+    <main class="portal-wrap">
+
+      <div id="loading" class="loading">
+        <div class="loading-inner">
+          <div class="spinner"></div>
+          <div>Opening PEN Portal…</div>
+        </div>
+      </div>
+
+      <!-- DIRECT APPS SCRIPT: STRIKINGLY IS NOT USED -->
+      <iframe
+        id="portalFrame"
+        title="PEN Portal"
+        src="about:blank"
+        allow="clipboard-read; clipboard-write; fullscreen; camera; microphone"
+        allowfullscreen>
+      </iframe>
+
+      <div id="offline" class="offline">
+        You are offline. PEN Portal needs an internet connection
+        for live programme data.
+      </div>
+
+      <div id="iosHelp" class="ios-help">
+        <div class="ios-card">
+          <h2>Install PEN Portal on iPhone</h2>
+
+          <p>
+            iPhone installation is done through Safari.
+          </p>
+
+          <div class="step">
+            <strong>1.</strong> Open this PEN Portal page in Safari.
+          </div>
+
+          <div class="step">
+            <strong>2.</strong> Tap the <strong>Share</strong> button.
+          </div>
+
+          <div class="step">
+            <strong>3.</strong> Select
+            <strong>Add to Home Screen</strong>.
+          </div>
+
+          <div class="step">
+            <strong>4.</strong> Tap <strong>Add</strong>.
+          </div>
+
+          <button
+            id="iosClose"
+            class="close"
+            type="button">
+            Close
+          </button>
+        </div>
+      </div>
+
+    </main>
   </div>
 
-  <div id="installHelp" class="card hidden">
-    <h2>Use PEN Field Visit as an App</h2>
-    <div class="status">For field work, install this app on the device. After it has been prepared online, you can open it from the phone home screen or computer taskbar even when internet is unavailable.</div>
-    <div class="small" style="margin-top:10px"><strong>Chrome / Android / Windows:</strong> use <strong>Install PEN Field Visit App</strong> when it appears. If the button is unavailable, open the browser menu and choose <strong>Install PEN Field Visit</strong> or <strong>Add to Home screen</strong>, depending on the device.</div>
-    <div class="small" style="margin-top:8px"><strong>iPhone / iPad:</strong> in Safari, tap <strong>Share</strong> → <strong>Add to Home Screen</strong>. The installed app opens without needing the normal browser tab.</div>
-    <div class="small" style="margin-top:8px"><strong>Before going offline:</strong> open the app from the PEN Portal while online, confirm your schools are cached, allow Location Services, and complete one GPS test.</div>
-    <button class="secondary" onclick="hideInstallHelp()">Close</button>
-  </div>
+  <script>
+    const PROD_URL =
+      'https://script.google.com/macros/s/AKfycbz4OAIXJVtUWOPUjIXz6WV4DWYLWepJsQMCshp5IKEa4efBcrtrisoXgmRqeLYfIyDicA/exec';
 
-  <div id="setupCard" class="card hidden">
-    <h2>Offline Access Not Ready</h2>
-    <div class="status warn">Open this Field Visit App from the PEN Portal while you are online. The system must securely download your assigned schools and prepare your device before you go into an area without internet.</div>
-  </div>
+    const frame =
+      document.getElementById('portalFrame');
 
-  <div id="visitCard" class="card hidden">
-    <h2>1. Start Field Visit</h2>
-    <label class="label" for="school">Assigned School</label>
-    <select id="school"><option value="">Loading schools...</option></select>
-    <label class="label" for="visitType">Visit Type</label>
-    <select id="visitType">
-      <option value="FOLLOW_UP">Follow-up</option>
-      <option value="COACHING">Coaching</option>
-      <option value="OBSERVATION">Classroom Observation</option>
-      <option value="MONITORING">Monitoring / Support Visit</option>
-    </select>
-    <div id="schoolLocationInfo" class="status" style="margin-top:10px">Select a school to see location readiness.</div>
-    <div id="locationCaptureWrap" class="actions hidden">
-      <button class="secondary" onclick="captureSchoolLocation()">Capture School Location</button>
-    </div>
-    <button id="startBtn" onclick="startVisit()">Start Visit &amp; Capture GPS</button>
-  </div>
+    /*
+     * Persist the fact that this PWA has an authenticated PEN session.
+     * The actual PEN session token remains in the Apps Script origin's
+     * localStorage. The PWA stores only a boolean session-state flag.
+     */
+    const PWA_SESSION_FLAG = 'PEN_PWA_HAS_SESSION';
+    const PWA_SESSION_TOKEN_KEY = 'PEN_PWA_SESSION_TOKEN';
 
-  <div id="activeCard" class="card hidden">
-    <h2>2. Active Visit</h2>
-    <div id="visitStatus" class="status"></div>
-    <div id="gpsBox" class="gps">Waiting for GPS...</div>
-    <label class="label" for="notes">Visit Notes</label>
-    <textarea id="notes" placeholder="Optional visit notes..."></textarea>
-    <button id="checkoutBtn" onclick="checkOutVisit()">Check Out &amp; Verify Visit</button>
-  </div>
-
-  <div id="coachingCard" class="card hidden">
-    <h2>3. Coaching / Observation Record</h2>
-    <label class="label" for="teacherID">Teacher ID</label><input id="teacherID" placeholder="Optional">
-    <label class="label" for="teacherName">Teacher Name</label><input id="teacherName" placeholder="Teacher name">
-    <label class="label" for="subject">Subject</label><input id="subject" placeholder="Subject">
-    <label class="label" for="grade">Grade / Level</label><input id="grade" placeholder="Grade / Level">
-    <label class="label" for="coachingFocus">Coaching Focus</label><textarea id="coachingFocus"></textarea>
-    <label class="label" for="observationSummary">Observation Summary</label><textarea id="observationSummary"></textarea>
-    <label class="label" for="strengthsObserved">Strengths Observed</label><textarea id="strengthsObserved"></textarea>
-    <label class="label" for="supportNeeded">Support Needed</label><textarea id="supportNeeded"></textarea>
-    <label class="label" for="agreedAction">Agreed Action</label><textarea id="agreedAction"></textarea>
-    <label class="label" for="nextFollowUpDate">Next Follow-up Date</label><input id="nextFollowUpDate" type="date">
-    <button id="saveCoachingBtn" onclick="saveCoaching()">Save Coaching Record</button>
-  </div>
-
-  <div class="card">
-    <h2>Offline Queue</h2>
-    <div id="queueInfo" class="queue">No pending offline records.</div>
-    <div class="small" style="margin-top:8px">Records remain on this device until the PEN server confirms successful synchronization. Closing the browser does not delete the queue.</div>
-    <button class="secondary" onclick="syncQueue()">Sync Now</button>
-  </div>
-
-  <div class="portal-return bottom">
-    <div class="return-title">Return to the main PEN Cascade Portal when you are finished.</div>
-    <button type="button" onclick="returnToMainPortal()">← Back to Main Portal</button>
-  </div>
-
-  <footer>PEN Field Visit Offline App • Application version 2026.13</footer>
-</div>
-</div>
-
-
-<script>
-(function(){
-  'use strict';
-  const MAIN_PORTAL_URL='https://script.google.com/macros/s/AKfycbz4OAIXJVtUWOPUjIXz6WV4DWYLWepJsQMCshp5IKEa4efBcrtrisoXgmRqeLYfIyDicA/exec';
-  const FIELD_VISIT_PARAM='field-visits';
-  const APPS_SCRIPT_ORIGIN=new URL(MAIN_PORTAL_URL).origin;
-  const shell=document.getElementById('mainPortalShell');
-  const frame=document.getElementById('mainPortalFrame');
-  const loading=document.getElementById('mainPortalLoading');
-  const params=new URLSearchParams(window.location.search);
-  let sessionRetryCount=0;
-  let sessionRetryTimer=null;
-  const isFieldVisit=String(params.get('app')||'').toLowerCase()===FIELD_VISIT_PARAM || ['CHECK_IN','CHECK_OUT'].includes(String(params.get('mode')||'').toUpperCase());
-  const fieldShell=document.getElementById('fieldVisitShell');
-
-  function getToken(){
-    try{return String(localStorage.getItem('PEN_SESSION_TOKEN')||'').trim();}catch(e){return ''}
-  }
-  function saveToken(token,account){
-    try{
-      if(token)localStorage.setItem('PEN_SESSION_TOKEN',String(token));
-      if(account)localStorage.setItem('PEN_ACCOUNT',JSON.stringify(account));
-    }catch(e){}
-  }
-  function clearToken(){
-    try{localStorage.removeItem('PEN_SESSION_TOKEN');localStorage.removeItem('PEN_ACCOUNT');sessionStorage.removeItem('PEN_SESSION_TOKEN');}catch(e){}
-  }
-  function showMainFrame(url){
-    if(!shell||!frame)return;
-    shell.style.display='block';
-    if(fieldShell)fieldShell.style.display='none';
-    loading.style.display='flex';
-    frame.style.display='none';
-    frame.src=url;
-    frame.onload=function(){loading.style.display='none';frame.style.display='block'};
-  }
-  function showLogin(clearStoredSession=true){
-    if(clearStoredSession)clearToken();
-    const u=new URL(MAIN_PORTAL_URL);
-    u.searchParams.set('view','login');
-    u.searchParams.set('embedded','1');
-    u.searchParams.set('t',Date.now());
-    showMainFrame(u.toString());
-  }
-  function showDashboard(token){
-    const u=new URL(MAIN_PORTAL_URL);
-    u.searchParams.set('view','dashboard');
-    u.searchParams.set('token',token);
-    u.searchParams.set('t',Date.now());
-    showMainFrame(u.toString());
-  }
-
-  window.addEventListener('message',function(event){
-    const d=event&&event.data||{};
-    if(!d || d.source!=='PEN_LOGIN_2026' || event.origin!==APPS_SCRIPT_ORIGIN)return;
-    if(d.type==='PEN_LOGIN_AUTHENTICATED' || d.type==='PEN_LOGIN_SUCCESS'){
-      sessionRetryCount=0;
-      if(sessionRetryTimer){clearTimeout(sessionRetryTimer);sessionRetryTimer=null;}
-      if(d.token)saveToken(d.token,d.account||null);
-      if(d.type==='PEN_LOGIN_SUCCESS' && d.token)showDashboard(String(d.token));
-      return;
+    function pwaGetSessionToken(){
+      try{
+        return String(localStorage.getItem(PWA_SESSION_TOKEN_KEY) || '').trim();
+      }catch(error){
+        return '';
+      }
     }
-  });
 
-  window.addEventListener('message',function(event){
-    const d=event&&event.data||{};
-    if(!d || event.origin!==APPS_SCRIPT_ORIGIN)return;
-    if(d.type==='PEN_SESSION_INVALID'){
-      const token=getToken();
-      if(!token){
-        showLogin(true);
+    function pwaHasSession(){
+      try{
+        return !!pwaGetSessionToken() || localStorage.getItem(PWA_SESSION_FLAG) === '1';
+      }catch(error){
+        return false;
+      }
+    }
+
+    function pwaSetSession(token){
+      try{
+        token = String(token || '').trim();
+        if(token){
+          localStorage.setItem(PWA_SESSION_TOKEN_KEY, token);
+          localStorage.setItem(PWA_SESSION_FLAG,'1');
+        }else{
+          localStorage.removeItem(PWA_SESSION_TOKEN_KEY);
+          localStorage.removeItem(PWA_SESSION_FLAG);
+        }
+      }catch(error){}
+    }
+
+    function buildDashboardUrl(){
+      const token = pwaGetSessionToken();
+      let url = PROD_URL + '?view=dashboard';
+      if(token){
+        url += '&token=' + encodeURIComponent(token);
+      }
+      url += '&t=' + Date.now();
+      return url;
+    }
+
+    function openPENLogin(){
+      loading.classList.remove('hidden');
+      frame.src = PROD_URL + '?view=login&embedded=1';
+    }
+
+    function openPENDashboard(){
+      loading.classList.remove('hidden');
+      frame.src = buildDashboardUrl();
+    }
+
+    /*
+     * This is the key reload fix.
+     * A full PWA reload no longer starts at the login route after
+     * the user has already authenticated.
+     */
+    frame.src = pwaHasSession()
+      ? buildDashboardUrl()
+      : (PROD_URL + '?view=login&embedded=1');
+
+    const loading =
+      document.getElementById('loading');
+
+    const offline =
+      document.getElementById('offline');
+
+    const installBtn =
+      document.getElementById('installBtn');
+
+    const refreshBtn =
+      document.getElementById('refreshBtn');
+
+    const iosHelp =
+      document.getElementById('iosHelp');
+
+    const iosClose =
+      document.getElementById('iosClose');
+
+    let deferredInstallPrompt = null;
+
+
+    /*
+     * Communication from the embedded Apps Script portal.
+     * We only accept messages originating from our own iframe.
+     */
+    window.addEventListener('message', function(event){
+
+      if(event.source !== frame.contentWindow) return;
+
+      const data = event.data || {};
+      const type = String(data.type || '').trim();
+
+      if(type === 'PEN_LOGIN_SUCCESS'){
+        const token = String(data.token || '').trim();
+        if(token){
+          pwaSetSession(token);
+          openPENDashboard();
+        }
         return;
       }
-      if(sessionRetryCount<3){
-        sessionRetryCount++;
-        const retryToken=token;
-        const delay=500*sessionRetryCount;
-        if(sessionRetryTimer)clearTimeout(sessionRetryTimer);
-        sessionRetryTimer=setTimeout(function(){
-          sessionRetryTimer=null;
-          if(getToken()===retryToken)showDashboard(retryToken);
-        },delay);
+
+      if(type === 'PEN_SESSION_INVALID'){
+        pwaSetSession('');
+        openPENLogin();
         return;
       }
-      sessionRetryCount=0;
-      showLogin(true);
+
+    });
+
+
+    frame.addEventListener('load', function () {
+      loading.classList.add('hidden');
+    });
+
+
+    refreshBtn.addEventListener('click', function () {
+      loading.classList.remove('hidden');
+
+      try {
+        frame.contentWindow.location.reload();
+      } catch (error) {
+        frame.src = frame.src;
+      }
+    });
+
+
+    function updateNetwork() {
+      offline.classList.toggle(
+        'show',
+        !navigator.onLine
+      );
     }
-  });
 
-  if(isFieldVisit){
-    if(shell)shell.style.display='none';
-    if(fieldShell)fieldShell.style.display='block';
-    return;
-  }
+    window.addEventListener('online', updateNetwork);
+    window.addEventListener('offline', updateNetwork);
 
-  if(fieldShell)fieldShell.style.display='none';
-  const urlToken=String(params.get('token')||params.get('sessionToken')||'').trim();
-  if(urlToken)saveToken(urlToken,null);
-  const token=getToken();
-  if(token)showDashboard(token);else showLogin(true);
-})();
-</script>
+    updateNetwork();
 
-<script>
-(function(){
-'use strict';
-const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.13';
-const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026';
-const DB_VERSION=1;
-const BRIDGE_SOURCE='PEN_FIELD_VISIT_PWA_2026';
-const p=new URLSearchParams(location.search);
-const appParam=String(p.get('app')||'').trim().toLowerCase();
-const legacyMode=['CHECK_IN','CHECK_OUT'].indexOf(String(p.get('mode')||'').toUpperCase())>=0 && !p.get('app');
-if(appParam!=='field-visits' && !legacyMode){ return; }
-if(legacyMode){
-  document.getElementById('legacyCaptureApp').classList.remove('hidden');
-  document.getElementById('pwaApp').classList.add('hidden');
-  const mode=(p.get('mode')||'CHECK_IN').toUpperCase();
-  const school=p.get('school')||'', county=p.get('county')||'', district=p.get('district')||'', visitType=p.get('visitType')||'FOLLOW_UP', visitID=p.get('visitID')||'', nonce=p.get('nonce')||'', targetOrigin=p.get('returnOrigin')||'';
-  document.getElementById('legacyModeText').textContent=(mode==='CHECK_OUT'?'Check-out GPS capture':'Check-in GPS capture')+' for PEN Field Visit Verification.';
-  document.getElementById('legacySchoolInfo').textContent=school+(district||county?' — '+district+(county?', '+county:''):'');
-  const setLegacy=(text,cls)=>{const e=document.getElementById('legacyStatus');e.textContent=text;e.className='status '+(cls||'');};
-  const btn=document.getElementById('legacyCaptureBtn');
-  function send(gps){
-    if(!window.opener||window.opener.closed){setLegacy('The PEN Portal window is no longer available. Please return to the portal and start GPS capture again.','bad');btn.disabled=false;return;}
-    const payload={source:'PEN_GPS_EXTERNAL_2026',type:mode==='CHECK_OUT'?'PEN_FIELD_VISIT_GPS_CHECK_OUT':'PEN_FIELD_VISIT_GPS_CHECK_IN',visitID:visitID,nonce:nonce,school:school,county:county,district:district,visitType:visitType,latitude:gps.latitude,longitude:gps.longitude,accuracy:gps.accuracy,capturedAt:gps.capturedAt};
-    try{window.opener.postMessage(payload,targetOrigin||'*');setLegacy('GPS captured successfully. Returning to PEN Portal...','ok');document.getElementById('legacyGpsBox').textContent='Latitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m';setTimeout(()=>window.close(),500)}catch(e){setLegacy('GPS was captured, but could not be returned to the PEN Portal.','bad');btn.disabled=false}
-  }
-  btn.addEventListener('click',function(){
-    btn.disabled=true;setLegacy('Requesting your device GPS location. Please allow location access if prompted.','');document.getElementById('legacyGpsBox').textContent='Waiting for GPS...';
-    if(!navigator.geolocation){setLegacy('This browser does not provide geolocation.','bad');btn.disabled=false;return;}
-    navigator.geolocation.getCurrentPosition(function(pos){send({latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy,capturedAt:new Date().toISOString()})},function(err){setLegacy('GPS could not be captured: '+(err&&err.message?err.message:'Unknown location error')+'. Turn on Location Services and allow this page to use your location, then try again.','bad');btn.disabled=false},{enableHighAccuracy:true,timeout:20000,maximumAge:0});
-  });
-  return;
-}
-let offlineToken=p.get('offlineToken')||'';
-let portalOrigin=p.get('portalOrigin')||'';
-let handoff=p.get('handoff')||'';
-let portalConnected=false;
-let schools=[];
-let activeVisit=null;
-let deferredInstallPrompt=null;
-let dbPromise=null;
-let bridgeReady=false;
-let bridgeFrameLoaded=false;
-let bridgeHelloTimer=null;
-const bridgePending={};
-let syncRunning=false;
-let bridgePinged=false;
-let bridgeReadyOrigin='';
 
-function $(id){return document.getElementById(id)}
-function uid(prefix){
-  const r=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now())+'-'+Math.random().toString(36).slice(2,12);
-  return String(prefix||'EV')+'-'+r;
-}
-function setMessage(text,type){const e=$('appMessage');e.textContent=text;e.className='status '+(type||'')}
-function online(){return navigator.onLine!==false}
-function safeDate(v){const d=v?new Date(v):null;return d&&!isNaN(d.getTime())?d:null}
-function isoNow(){return new Date().toISOString()}
-function fmt(v){const d=safeDate(v);return d?d.toLocaleString():String(v||'—')}
+    function isIOS() {
+      return (
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (
+          navigator.platform === 'MacIntel' &&
+          navigator.maxTouchPoints > 1
+        )
+      );
+    }
 
-function idbOpen(){
-  if(dbPromise)return dbPromise;
-  dbPromise=new Promise(function(resolve,reject){
-    const req=indexedDB.open(DB_NAME,DB_VERSION);
-    req.onupgradeneeded=function(){
-      const db=req.result;
-      if(!db.objectStoreNames.contains('meta'))db.createObjectStore('meta',{keyPath:'key'});
-      if(!db.objectStoreNames.contains('schools'))db.createObjectStore('schools',{keyPath:'schoolKey'});
-      if(!db.objectStoreNames.contains('queue'))db.createObjectStore('queue',{keyPath:'id'});
-    };
-    req.onsuccess=function(){resolve(req.result)};req.onerror=function(){reject(req.error||new Error('Unable to open offline storage.'))};
-  });
-  return dbPromise;
-}
-async function idbGet(store,key){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(store,'readonly'),req=tx.objectStore(store).get(key);req.onsuccess=()=>res(req.result||null);req.onerror=()=>rej(req.error)})}
-async function idbPut(store,val){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(val);tx.oncomplete=()=>res(true);tx.onerror=()=>rej(tx.error||new Error('Storage write failed.'))})}
-async function idbDelete(store,key){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(key);tx.oncomplete=()=>res(true);tx.onerror=()=>rej(tx.error)})}
-async function idbAll(store){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(store,'readonly'),req=tx.objectStore(store).getAll();req.onsuccess=()=>res(req.result||[]);req.onerror=()=>rej(req.error)})}
-async function metaGet(key){const r=await idbGet('meta',key);return r?r.value:null}
-async function metaSet(key,value){return idbPut('meta',{key:key,value:value,updatedAt:isoNow()})}
 
-function trustedPortalMessage(event){
-  if(!event || !window.opener || window.opener.closed)return false;
-  if(event.source!==window.opener)return false;
-  if(portalOrigin && event.origin!==portalOrigin)return false;
-  return true;
-}
-const portalPending={};
-let portalHelloTimer=null;
-function sendPortalHello(){
-  if(!window.opener || window.opener.closed)return false;
-  const msg={source:'PEN_FIELD_VISIT_PWA_2026',type:'HELLO',requestId:uid('BOOT'),handoff:handoff,appVersion:APP_VERSION};
-  try{window.opener.postMessage(msg,portalOrigin||'*');return true}catch(e){return false}
-}
-window.addEventListener('message',function(event){
-  const d=event.data||{};
-  if(d.source!=='PEN_FIELD_VISIT_PORTAL_2026')return;
-  if(!trustedPortalMessage(event))return;
-  if(handoff && d.handoff!==handoff)return;
-  if(d.type==='BUNDLE' || d.type==='RESPONSE'){
-    const id=String(d.requestId||'');
-    const cb=portalPending[id];
-    if(!cb)return;
-    delete portalPending[id];
-    if(d.success)cb.resolve(d.result);else cb.reject(new Error(d.error||'PEN Portal request failed.'));
-  }
-});
-function portalRequest(action,args){
-  if(!window.opener || window.opener.closed) return Promise.reject(new Error('Open the PEN Field Visit App from the PEN Portal while online to refresh or synchronize data.'));
-  const requestId=uid('PORTAL');
-  return new Promise(function(resolve,reject){
-    portalPending[requestId]={resolve:resolve,reject:reject};
-    try{
-      window.opener.postMessage({source:'PEN_FIELD_VISIT_PWA_2026',type:'REQUEST',requestId:requestId,action:String(action).toUpperCase(),args:Array.isArray(args)?args:[],handoff:handoff,appVersion:APP_VERSION},portalOrigin||'*');
-    }catch(e){delete portalPending[requestId];reject(e);return}
-    setTimeout(function(){if(portalPending[requestId]){delete portalPending[requestId];reject(new Error('The PEN Portal did not respond.'))}},30000);
-  });
-}
-async function syncViaPortalIfAvailable(){
-  if(!offlineToken||!online()||!window.opener||window.opener.closed)return false;
-  const q=await idbAll('queue');q.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
-  if(!q.length){$('syncPill').textContent='SYNCED';$('syncPill').className='pill online';return true}
-  syncRunning=true;$('syncBtn').disabled=true;$('refreshBtn').disabled=true;$('syncPill').textContent='SYNCING';$('syncPill').className='pill syncing';
-  try{
-    let processed=0;
-    for(let i=0;i<q.length;i+=10){
-      const batch=q.slice(i,i+10);
-      const resp=await portalRequest('SYNC',[offlineToken,batch]);
-      const resultList=Array.isArray(resp&&resp.results)?resp.results:[];
-      const removed=[];
-      for(const r of resultList)if(r.success)removed.push(r.id);
-      await removeQueue(removed);processed+=removed.length;
-      for(const item of batch){
-        if(!removed.includes(item.id)){
-          const sr=resultList.find(x=>x.id===item.id);const stored=await idbGet('queue',item.id);
-          if(stored){stored.attempts=(stored.attempts||0)+1;stored.lastError=sr&&sr.error?sr.error:'Synchronization failed.';await idbPut('queue',stored)}
+    function isStandalone() {
+      return (
+        window.matchMedia(
+          '(display-mode: standalone)'
+        ).matches ||
+        window.navigator.standalone === true
+      );
+    }
+
+
+    /*
+     * Android / Chrome install prompt.
+     */
+    window.addEventListener(
+      'beforeinstallprompt',
+      function (event) {
+
+        event.preventDefault();
+
+        deferredInstallPrompt = event;
+
+        if (!isStandalone()) {
+          installBtn.classList.add('show');
         }
       }
-    }
-    const remaining=await idbAll('queue');
-    if(remaining.length)setMessage(processed+' action(s) synchronized. '+remaining.length+' remain pending.','warn');
-    else{await metaSet('lastSync',isoNow());setMessage(processed?'All pending field records synchronized successfully.':'No pending records needed synchronization.','ok')}
-    portalConnected=true;await refreshMeta();$('syncPill').textContent=remaining.length?'PENDING':'SYNCED';$('syncPill').className='pill '+(remaining.length?'offline':'online');return true;
-  }catch(e){$('syncPill').textContent='SYNC ERROR';$('syncPill').className='pill offline';setMessage('Synchronization could not complete: '+(e.message||e),'bad');return false}
-  finally{syncRunning=false;$('syncBtn').disabled=false;$('refreshBtn').disabled=false}
-}
+    );
 
-async function saveBundle(bundle){
-  if(!bundle)return;
-  schools=Array.isArray(bundle.schools)?bundle.schools:[];
-  const existing=await idbAll('schools');
-  const newKeys={};schools.forEach(s=>newKeys[String(s.schoolKey)]=true);
-  for(const s of existing){if(!newKeys[s.schoolKey])await idbDelete('schools',s.schoolKey)}
-  for(const s of schools)await idbPut('schools',s);
-  if(bundle.offlineToken){offlineToken=bundle.offlineToken;await metaSet('offlineToken',offlineToken)}
-  await metaSet('offlineExpiresAt',bundle.expiresAt||'');
-  await metaSet('actor',bundle.actor||{});
-  await metaSet('appVersion',bundle.appVersion||APP_VERSION);
-  await metaSet('lastSync',bundle.serverTime||isoNow());
-  updateExpiry(bundle.expiresAt);
-  await loadSchoolsFromDB();
-}
-async function loadSchoolsFromDB(){schools=await idbAll('schools');schools.sort((a,b)=>(String(a.county)+'|'+String(a.district)+'|'+String(a.school)).localeCompare(String(b.county)+'|'+String(b.district)+'|'+String(b.school)));$('schoolCount').textContent=String(schools.length);renderSchoolOptions()}
-function selectedSchool(){const v=$('school').value;return schools.find(s=>String(s.schoolKey)===String(v))||null}
-function renderSchoolOptions(){
-  const sel=$('school');if(!sel)return;
-  const cur=sel.value;sel.innerHTML='<option value="">Select a school...</option>';
-  schools.forEach(function(s){const o=document.createElement('option');o.value=s.schoolKey;o.textContent=s.school+' — '+s.district+', '+s.county;sel.appendChild(o)});
-  if(schools.some(s=>s.schoolKey===cur))sel.value=cur;
-  updateSchoolLocationInfo();
-}
-function updateSchoolLocationInfo(){
-  const s=selectedSchool(),el=$('schoolLocationInfo'),wrap=$('locationCaptureWrap');
-  if(!s){el.textContent='Select a school to see location readiness.';wrap.classList.add('hidden');return}
-  const st=String(s.locationStatus||'NOT CAPTURED').toUpperCase();
-  if(st==='VERIFIED'){
-    el.className='status ok';el.textContent='School location is verified. The visit will be checked against this authoritative location. Geofence: '+Math.round(Number(s.radiusMeters||150))+' m.';wrap.classList.add('hidden');
-  }else if(st==='PROVISIONAL'||st==='PENDING_REVIEW'){
-    el.className='status warn';el.textContent='School location is captured but not officially approved yet. Visits can proceed, but GPS verification will remain provisional until PEN approves the location.';wrap.classList.remove('hidden');
-  }else{
-    el.className='status warn';el.textContent='No official school GPS location has been captured yet. You can still capture visit GPS; the visit will require location review. You may also capture this school\'s location now.';wrap.classList.remove('hidden');
-  }
-}
-$('school').addEventListener('change',updateSchoolLocationInfo);
 
-function connectionUI(){
-  const c=$('connectionPill');
-  if(online()){c.textContent='ONLINE';c.className='pill online';}else{c.textContent='OFFLINE';c.className='pill offline';}
-  return online();
-}
-async function renderQueue(){
-  const q=await idbAll('queue');
-  q.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
-  $('pendingCount').textContent=String(q.length);$('queueInfo').textContent=q.length?q.length+' pending action(s) waiting for internet sync.':'No pending offline records.';
-}
-function updateExpiry(v){$('expiry').textContent=v?fmt(v):'—'}
-async function refreshMeta(){const exp=await metaGet('offlineExpiresAt');updateExpiry(exp);const last=await metaGet('lastSync');$('lastSync').textContent=last?fmt(last):'Never';await renderQueue()}
+    window.addEventListener(
+      'appinstalled',
+      function () {
 
-async function enqueue(action,payload){
-  const item={id:uid('QUEUE'),action:String(action).toUpperCase(),payload:payload,createdAt:isoNow(),attempts:0,lastError:''};
-  await idbPut('queue',item);await renderQueue();
-  return item;
-}
-async function removeQueue(ids){for(const id of ids)await idbDelete('queue',id);await renderQueue()}
+        deferredInstallPrompt = null;
 
-function haversine(lat1,lng1,lat2,lng2){
-  const R=6371000,p1=Number(lat1)*Math.PI/180,p2=Number(lat2)*Math.PI/180,dp=(Number(lat2)-Number(lat1))*Math.PI/180,dl=(Number(lng2)-Number(lng1))*Math.PI/180;
-  const a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-function localVerify(gps,school){
-  if(!gps||gps.latitude==null||gps.longitude==null)return {status:'GPS_NOT_CAPTURED',distance:null,reason:'GPS coordinates were not captured.'};
-  if(!school||school.latitude==null||school.longitude==null||!isFinite(Number(school.latitude))||!isFinite(Number(school.longitude)))return {status:'REVIEW_REQUIRED',distance:null,reason:'School GPS location has not been established.'};
-  const distance=haversine(gps.latitude,gps.longitude,school.latitude,school.longitude),radius=Number(school.radiusMeters)||150,acc=Number(gps.accuracy);
-  if(!isFinite(acc))return {status:'REVIEW_REQUIRED',distance:distance,reason:'GPS accuracy could not be determined.'};
-  if(acc>250)return {status:'REVIEW_REQUIRED',distance:distance,reason:'GPS accuracy is too low for automatic verification ('+Math.round(acc)+' m).'};
-  if(distance>radius)return {status:'NOT_VERIFIED',distance:distance,reason:'GPS point is outside the school geofence ('+Math.round(distance)+' m from the recorded school location).'};
-  const st=String(school.locationStatus||'').toUpperCase();
-  if(st==='PROVISIONAL'||st==='PENDING_REVIEW')return {status:'LOCATION_PROVISIONAL',distance:distance,reason:'Point is within the provisional school location, but the school location has not yet been officially verified.'};
-  return acc>100?{status:'VERIFIED_LOW_ACCURACY',distance:distance,reason:'Inside school geofence, but GPS accuracy is lower than the preferred threshold.'}:{status:'VERIFIED',distance:distance,reason:'GPS point is within the verified school geofence.'};
-}
-async function captureGPS(){
-  if(!navigator.geolocation)throw new Error('This device/browser does not provide geolocation.');
-  $('gpsBox').textContent='Acquiring high-accuracy GPS. Keep Location Services ON; internet is not required...';
-  const get=(opts)=>new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,opts));
-  let best=null;
-  try{
-    const pos=await get({enableHighAccuracy:true,timeout:15000,maximumAge:0});
-    best=pos;
-  }catch(_){}
+        installBtn.classList.remove('show');
+      }
+    );
 
-  $('gpsBox').textContent=best
-    ? 'GPS acquired. Refining accuracy...\nAccuracy: '+Math.round(best.coords.accuracy)+' m'
-    : 'Waiting for device GPS. Keep Location Services ON...';
 
-  const refined=await new Promise(function(resolve,reject){
-    if(!navigator.geolocation){reject(new Error('This device/browser does not provide geolocation.'));return}
-    let settled=false;
-    let watchId=null;
-    const started=Date.now();
-    const finish=function(pos,err){
-      if(settled)return;
-      settled=true;
-      if(watchId!==null){try{navigator.geolocation.clearWatch(watchId)}catch(_){} watchId=null}
-      if(pos)best=pos;
-      if(best){resolve(best);return}
-      reject(err||new Error('GPS could not be captured. Turn on Location Services and try again.'));
-    };
-    const onSuccess=function(pos){
-      if(!best || Number(pos.coords.accuracy)<Number(best.coords.accuracy))best=pos;
-      $('gpsBox').textContent='GPS acquired. Refining accuracy...\nAccuracy: '+Math.round(best.coords.accuracy)+' m';
-      const age=Date.now()-started;
-      if(Number(best.coords.accuracy)<=30 || age>=10000)finish(best);
-    };
-    const onError=function(err){
-      if(Date.now()-started>=12000)finish(null,err);
-    };
-    try{watchId=navigator.geolocation.watchPosition(onSuccess,onError,{enableHighAccuracy:true,timeout:12000,maximumAge:0});}
-    catch(e){finish(null,e);return}
-    setTimeout(function(){finish(best);},12000);
-  });
-
-  return {
-    latitude:refined.coords.latitude,
-    longitude:refined.coords.longitude,
-    accuracy:refined.coords.accuracy,
-    capturedAt:new Date().toISOString()
-  };
-}
-
-window.captureSchoolLocation=async function(){
-  const s=selectedSchool();if(!s){setMessage('Select a school first.','warn');return}
-  try{
-    setMessage('Capturing the school\'s GPS location. Stay at the school while the device obtains a good reading.','');
-    const gps=await captureGPS();
-    const payload={idempotencyKey:uid('LOC'),schoolKey:s.schoolKey,school:s.school,county:s.county,district:s.district,latitude:gps.latitude,longitude:gps.longitude,accuracy:gps.accuracy,source:'FIELD_DEVICE',capturedAt:gps.capturedAt,radiusMeters:s.radiusMeters||150,notes:''};
-    await enqueue('SCHOOL_LOCATION',payload);
-    s.latitude=gps.latitude;s.longitude=gps.longitude;s.locationStatus='PENDING_REVIEW';s.locationSource='FIELD_CAPTURE';s.gpsAccuracy=gps.accuracy;await idbPut('schools',s);renderSchoolOptions();
-    setMessage('School location saved on this device and queued for PEN review. It will not become the authoritative location until approved.','warn');
-    if(online())syncQueue();
-  }catch(e){setMessage('School location was not captured: '+(e.message||e),'bad')}
-};
-
-window.startVisit=async function(){
-  const s=selectedSchool();if(!s){setMessage('Please select a school first.','warn');return}
-  if(activeVisit){setMessage('There is already an active visit on this device. Complete or clear it before starting another.','warn');return}
-  $('startBtn').disabled=true;
-  try{
-    setMessage('Capturing GPS. Please remain at the school while the device obtains the best available reading.','');
-    const gps=await captureGPS();
-    const verification=localVerify(gps,s);
-    const visitID=uid('VISIT');
-    const payload={action:'CHECK_IN',visitID:visitID,idempotencyKey:visitID,schoolKey:s.schoolKey,school:s.school,county:s.county,district:s.district,visitType:$('visitType').value,schoolLatitude:s.latitude,schoolLongitude:s.longitude,radiusMeters:s.radiusMeters||150,latitude:gps.latitude,longitude:gps.longitude,accuracy:gps.accuracy,offlineCreated:!online(),capturedAt:gps.capturedAt,notes:''};
-    await enqueue('CHECK_IN',payload);
-    activeVisit={visitID:visitID,school:s,pending:true,payload:payload,checkIn:gps};await metaSet('activeVisit',activeVisit);
-    $('activeCard').classList.remove('hidden');$('coachingCard').classList.remove('hidden');
-    $('visitStatus').textContent='Visit saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');
-    $('visitStatus').className='status '+(verification.status==='VERIFIED'||verification.status==='VERIFIED_LOW_ACCURACY'?'':'warn');
-    $('gpsBox').textContent='Check-in GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
-    $('startBtn').disabled=false;setMessage(online()?'Visit saved and will synchronize now.':'Visit saved offline. You can continue without internet.','ok');
-    if(online())await syncQueue();
-  }catch(e){$('startBtn').disabled=false;setMessage('Visit could not be started: '+(e.message||e),'bad')}
-};
-
-window.checkOutVisit=async function(){
-  if(!activeVisit){setMessage('There is no active visit.','warn');return}
-  $('checkoutBtn').disabled=true;
-  try{
-    setMessage('Capturing GPS for check-out...','');
-    const gps=await captureGPS();
-    const verification=localVerify(gps,activeVisit.school);
-    const payload={action:'CHECK_OUT',visitID:activeVisit.visitID,idempotencyKey:activeVisit.visitID+':CHECKOUT',latitude:gps.latitude,longitude:gps.longitude,accuracy:gps.accuracy,capturedAt:gps.capturedAt,notes:$('notes').value||''};
-    await enqueue('CHECK_OUT',payload);
-    $('visitStatus').textContent='Check-out saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');
-    $('visitStatus').className='status '+(verification.status==='VERIFIED'||verification.status==='VERIFIED_LOW_ACCURACY'?'':'warn');
-    $('gpsBox').textContent+='\n\nCheck-out GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
-    $('checkoutBtn').disabled=true;await metaSet('activeVisit',null);activeVisit=null;setMessage(online()?'Check-out saved and will synchronize now.':'Check-out saved offline.','ok');
-    if(online())await syncQueue();
-  }catch(e){$('checkoutBtn').disabled=false;setMessage('Check-out could not be completed: '+(e.message||e),'bad')}
-};
-
-window.saveCoaching=async function(){
-  if(!activeVisit){setMessage('Start a visit before saving a coaching record.','warn');return}
-  $('saveCoachingBtn').disabled=true;
-  const payload={visitID:activeVisit.visitID,idempotencyKey:uid('COACH'),teacherID:$('teacherID').value||'',teacherName:$('teacherName').value||'',subject:$('subject').value||'',grade:$('grade').value||'',coachingFocus:$('coachingFocus').value||'',observationSummary:$('observationSummary').value||'',strengthsObserved:$('strengthsObserved').value||'',supportNeeded:$('supportNeeded').value||'',agreedAction:$('agreedAction').value||'',nextFollowUpDate:$('nextFollowUpDate').value||'',surveyVersion:'PRE-M&E-V1',mePayload:{},clientSubmittedAt:isoNow()};
-  try{await enqueue('COACHING',payload);setMessage(online()?'Coaching record saved and will synchronize now.':'Coaching record saved offline.','ok');if(online())await syncQueue()}catch(e){setMessage('Coaching record could not be saved locally: '+(e.message||e),'bad')}finally{$('saveCoachingBtn').disabled=false}
-};
-
-window.syncQueue=async function(){
-  if(!online()){setMessage('Internet is unavailable. Pending records remain safely stored on this device.','warn');return}
-  if(!offlineToken){setMessage('Offline access is not prepared. Open the Field Visit App from the PEN Portal while online.','bad');return}
-  if(!window.opener || window.opener.closed){setMessage('Open the Field Visit App from the PEN Portal while online to synchronize pending records.','warn');return}
-  await syncViaPortalIfAvailable();
-};
-
-window.refreshOfflineData=async function(){
-  if(!online()){setMessage('Connect to the internet before refreshing offline data. Existing cached schools remain available offline.','warn');return}
-  if(!window.opener || window.opener.closed){setMessage('Open the Field Visit App from the PEN Portal while you are online to refresh offline data.','warn');return}
-  $('refreshBtn').disabled=true;setMessage('Refreshing your offline school list and access package...','');
-  try{
-    const bundle=await portalRequest('PROVISION',[]);
-    await saveBundle(bundle);
-    portalConnected=true;
-    $('visitCard').classList.remove('hidden');$('setupCard').classList.add('hidden');
-    setMessage('Offline data refreshed. '+schools.length+' assigned school(s) are cached on this device.','ok');
-  }catch(e){setMessage('Offline data refresh failed: '+(e&&e.message?e.message:String(e))+'. Your existing local data has not been deleted.','bad')}
-  finally{$('refreshBtn').disabled=false}
-};
-
-function returnToMainPortal(){
-  const portalUrl='https://spondeeisaac.github.io/PEN-Portal/';
-  try{
-    if(window.opener && !window.opener.closed){
-      try{
-        window.opener.postMessage({source:'PEN_FIELD_VISIT_PWA_2026',type:'RETURN_TO_PORTAL'},portalOrigin||'*');
-      }catch(_){}
-    }
-  }catch(_){}
-  window.location.href=portalUrl;
-}
-window.returnToMainPortal=returnToMainPortal;
-
-async function initialLoad(){
-  connectionUI();
-  try{
-    await loadSchoolsFromDB();
-    const active=await metaGet('activeVisit');if(active){activeVisit=active;showActiveVisitFromStorage(active)}
-    await refreshMeta();
-
-    if(online() && window.opener && !window.opener.closed){
-      portalConnected=true;
-      sendPortalHello();
-      let tries=0;
-      if(portalHelloTimer)clearInterval(portalHelloTimer);
-      portalHelloTimer=setInterval(function(){
-        if(tries++>20 || portalConnected){clearInterval(portalHelloTimer);portalHelloTimer=null;return}
-        sendPortalHello();
-      },500);
+    /*
+     * iPhone does not expose beforeinstallprompt.
+     * Show an Install button there as well.
+     */
+    if (isIOS() && !isStandalone()) {
+      installBtn.classList.add('show');
     }
 
-    if(schools.length){
-      $('visitCard').classList.remove('hidden');$('setupCard').classList.add('hidden');
-      setMessage(online()&&window.opener?'Connecting to PEN Portal for the latest field-access package...':'Offline mode is active. Your cached school data is available.','warn');
-    }else{
-      $('setupCard').classList.remove('hidden');
-      setMessage(window.opener&&online()?'Preparing secure offline field access from the PEN Portal...':'Open the Field Visit App from the PEN Portal while online to prepare this device.','warn');
+
+    installBtn.addEventListener(
+      'click',
+      async function () {
+
+        if (deferredInstallPrompt) {
+
+          deferredInstallPrompt.prompt();
+
+          try {
+            await deferredInstallPrompt.userChoice;
+          } catch (error) {}
+
+          deferredInstallPrompt = null;
+
+          return;
+        }
+
+
+        if (isIOS()) {
+
+          iosHelp.classList.add('show');
+
+          return;
+        }
+
+
+        /*
+         * For browsers that do not expose a native prompt,
+         * guide the user rather than opening another site.
+         */
+        alert(
+          'Use your browser menu and choose Install PEN Portal or Add to Home screen.'
+        );
+      }
+    );
+
+
+    iosClose.addEventListener(
+      'click',
+      function () {
+        iosHelp.classList.remove('show');
+      }
+    );
+
+
+    iosHelp.addEventListener(
+      'click',
+      function (event) {
+        if (event.target === iosHelp) {
+          iosHelp.classList.remove('show');
+        }
+      }
+    );
+
+
+    /*
+     * Service worker caches only the PWA shell.
+     * The Apps Script portal itself is intentionally not cached.
+     */
+    if ('serviceWorker' in navigator) {
+
+      window.addEventListener(
+        'load',
+        function () {
+
+          navigator.serviceWorker
+            .register(
+              './service-worker.js?v=20260923-2',
+              {scope: './'}
+            )
+            .catch(function () {});
+
+        }
+      );
+
     }
-
-    /* The portal HELLO handler sends the bundle directly once this app is ready. */
-    if(online()&&window.opener&&!offlineToken){setTimeout(sendPortalHello,150)}
-  }catch(e){setMessage('The offline storage system could not start: '+(e.message||e),'bad')}
-  connectionUI();
-}
-
-function showActiveVisitFromStorage(v){
-  $('activeCard').classList.remove('hidden');$('coachingCard').classList.remove('hidden');$('visitStatus').textContent='An active visit is saved on this device for '+(v.school&&v.school.school||'the selected school')+'.';$('visitStatus').className='status warn';$('gpsBox').textContent=v.checkIn?'Check-in GPS\nLatitude: '+v.checkIn.latitude+'\nLongitude: '+v.checkIn.longitude+'\nAccuracy: '+Math.round(v.checkIn.accuracy)+' m':'Visit saved offline.';
-}
-
-window.addEventListener('online',async function(){connectionUI();setMessage('Internet restored. Checking pending field records...','ok');try{if(offlineToken&&window.opener&&!window.opener.closed)await syncViaPortalIfAvailable();if(window.opener&&!window.opener.closed)sendPortalHello()}catch(_){} });
-window.addEventListener('offline',function(){connectionUI();setMessage('You are offline. Field visits continue to work using the data already stored on this device.','warn')});
-function isStandalone(){return window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}
-window.showInstallHelp=function(){$('installHelp').classList.remove('hidden')}
-window.hideInstallHelp=function(){$('installHelp').classList.add('hidden')}
-window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredInstallPrompt=e;$('installBtn').style.display='inline-flex';$('installStatus').textContent='This device can install the PEN Field Visit App for quick offline access.'});
-window.addEventListener('appinstalled',function(){deferredInstallPrompt=null;$('installBtn').style.display='none';$('installStatus').textContent='PEN Field Visit App is installed. You can open it from the home screen or taskbar.';});
-window.installApp=async function(){
-  if(isStandalone()){setMessage('PEN Field Visit App is already installed and running as an app.','ok');return}
-  if(!deferredInstallPrompt){$('installHelp').classList.remove('hidden');return}
-  try{deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;}catch(_){}
-  deferredInstallPrompt=null;$('installBtn').style.display='none';
-};
-if(isStandalone()){$('installBtn').style.display='none';$('installStatus').textContent='Running as an installed app. For refresh and synchronization, reconnect and open the app from the PEN Portal.';}
-
-
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js',{scope:'./'}).then(function(reg){reg.update().catch(function(){});}).catch(function(){setMessage('Offline application caching is not active yet. Make sure the PEN website has the supplied /sw.js file, then reload this page while online.','warn')})}
-
-initialLoad();
-})();
-</script>
+  </script>
 </body>
 </html>
