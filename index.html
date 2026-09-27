@@ -177,13 +177,6 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
   const MAIN_PORTAL_URL='https://script.google.com/macros/s/AKfycbz4OAIXJVtUWOPUjIXz6WV4DWYLWepJsQMCshp5IKEa4efBcrtrisoXgmRqeLYfIyDicA/exec';
   const FIELD_VISIT_PARAM='field-visits';
   const APPS_SCRIPT_ORIGIN=new URL(MAIN_PORTAL_URL).origin;
-  // Apps Script HTMLService may deliver postMessage events from either
-  // script.google.com or the sandboxed script.googleusercontent.com origin.
-  // Both are trusted origins for this specific deployed PEN web app.
-  const ALLOWED_APPS_SCRIPT_ORIGINS=new Set([
-    APPS_SCRIPT_ORIGIN,
-    'https://script.googleusercontent.com'
-  ]);
   const shell=document.getElementById('mainPortalShell');
   const frame=document.getElementById('mainPortalFrame');
   const loading=document.getElementById('mainPortalLoading');
@@ -204,7 +197,36 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
   const isFieldVisit=String(params.get('app')||'').toLowerCase()===FIELD_VISIT_PARAM || ['CHECK_IN','CHECK_OUT'].includes(String(params.get('mode')||'').toUpperCase());
   const fieldShell=document.getElementById('fieldVisitShell');
 
-  function getToken(){
+  function captureUrlSessionToken(){
+  try{
+    const u = new URL(window.location.href);
+    const token = String(
+      u.searchParams.get('token') ||
+      u.searchParams.get('sessionToken') ||
+      ''
+    ).trim();
+
+    if(token){
+      saveToken(token, null);
+
+      // Remove the session token from the visible GitHub URL after
+      // capturing it. The token remains in localStorage for the
+      // authenticated iframe.
+      try{
+        u.searchParams.delete('token');
+        u.searchParams.delete('sessionToken');
+        u.searchParams.delete('view');
+        u.searchParams.delete('embedded');
+        window.history.replaceState({}, document.title, u.pathname + (u.searchParams.toString() ? '?' + u.searchParams.toString() : ''));
+      }catch(_){}
+
+      return token;
+    }
+  }catch(_){}
+  return '';
+}
+
+function getToken(){
     try{return String(localStorage.getItem('PEN_SESSION_TOKEN')||'').trim();}catch(e){return ''}
   }
   function saveToken(token,account){
@@ -243,7 +265,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 
   window.addEventListener('message',function(event){
     const d=event&&event.data||{};
-    if(!d || d.source!=='PEN_LOGIN_2026' || !ALLOWED_APPS_SCRIPT_ORIGINS.has(event.origin))return;
+    if(!d || d.source!=='PEN_LOGIN_2026' || event.origin!==APPS_SCRIPT_ORIGIN)return;
     if(d.type==='PEN_LOGIN_AUTHENTICATED' || d.type==='PEN_LOGIN_SUCCESS'){
       if(d.token)saveToken(d.token,d.account||null);
       if(d.type==='PEN_LOGIN_SUCCESS' && d.token)showDashboard(String(d.token));
@@ -253,7 +275,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 
   window.addEventListener('message',function(event){
     const d=event&&event.data||{};
-    if(!d || !ALLOWED_APPS_SCRIPT_ORIGINS.has(event.origin))return;
+    if(!d || event.origin!==APPS_SCRIPT_ORIGIN)return;
     if(d.type==='PEN_SESSION_INVALID'){
       showLogin();
     }
@@ -266,7 +288,8 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
   }
 
   if(fieldShell)fieldShell.style.display='none';
-  const token=getToken();
+  const returnedToken = captureUrlSessionToken();
+  const token = returnedToken || getToken();
   if(token)showDashboard(token);else showLogin();
 })();
 </script>
