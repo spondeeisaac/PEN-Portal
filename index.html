@@ -59,8 +59,19 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <div class="actions" style="margin-top:8px">
       <button id="refreshBtn" class="secondary" onclick="refreshOfflineData()">Refresh Offline Data</button>
       <button id="syncBtn" onclick="syncQueue()">Sync Pending Records</button>
-      <button id="installBtn" class="secondary install" onclick="installApp()">Install App</button>
+      <button id="installBtn" class="secondary install" onclick="installApp()">Install PEN Field Visit App</button>
+      <button id="installHelpBtn" class="secondary" onclick="showInstallHelp()">How to Install</button>
     </div>
+    <div id="installStatus" class="small" style="margin-top:8px"></div>
+  </div>
+
+  <div id="installHelp" class="card hidden">
+    <h2>Use PEN Field Visit as an App</h2>
+    <div class="status">For field work, install this app on the device. After it has been prepared online, you can open it from the phone home screen or computer taskbar even when internet is unavailable.</div>
+    <div class="small" style="margin-top:10px"><strong>Chrome / Android / Windows:</strong> use <strong>Install PEN Field Visit App</strong> when it appears. If the button is unavailable, open the browser menu and choose <strong>Install PEN Field Visit</strong> or <strong>Add to Home screen</strong>, depending on the device.</div>
+    <div class="small" style="margin-top:8px"><strong>iPhone / iPad:</strong> in Safari, tap <strong>Share</strong> → <strong>Add to Home Screen</strong>. The installed app opens without needing the normal browser tab.</div>
+    <div class="small" style="margin-top:8px"><strong>Before going offline:</strong> open the app from the PEN Portal while online, confirm your schools are cached, allow Location Services, and complete one GPS test.</div>
+    <button class="secondary" onclick="hideInstallHelp()">Close</button>
   </div>
 
   <div id="setupCard" class="card hidden">
@@ -117,7 +128,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <button class="secondary" onclick="syncQueue()">Sync Now</button>
   </div>
 
-  <footer>PEN Field Visit Offline App • Application version 2026.10</footer>
+  <footer>PEN Field Visit Offline App • Application version 2026.13</footer>
 </div>
 
 
@@ -125,7 +136,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.12';
+const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.13';
 const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026';
 const DB_VERSION=1;
 const BRIDGE_SOURCE='PEN_FIELD_VISIT_PWA_2026';
@@ -341,42 +352,51 @@ function localVerify(gps,school){
 }
 async function captureGPS(){
   if(!navigator.geolocation)throw new Error('This device/browser does not provide geolocation.');
-  $('gpsBox').textContent='Acquiring high-accuracy GPS… Keep Location Services ON. Internet is not required for GPS.';
-  const getOnce=(opts)=>new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,opts));
-  const readings=[];
-  const add=function(pos){
-    if(!pos||!pos.coords)return;
-    const lat=Number(pos.coords.latitude),lng=Number(pos.coords.longitude),acc=Number(pos.coords.accuracy);
-    if(Number.isFinite(lat)&&Number.isFinite(lng))readings.push({latitude:lat,longitude:lng,accuracy:Number.isFinite(acc)?acc:9999,capturedAt:new Date().toISOString()});
-  };
-  try{ add(await getOnce({enableHighAccuracy:true,timeout:15000,maximumAge:0})); }catch(e){}
-  if(readings.length && readings[0].accuracy<=50)return readings[0];
-  if(!navigator.geolocation.watchPosition){
-    if(readings.length)return readings[0];
-    throw new Error('GPS could not be obtained. Keep Location Services ON and try again.');
-  }
-  $('gpsBox').textContent='GPS is refining the location… Stay at the school. Internet is not required.';
-  return await new Promise(function(resolve,reject){
-    let settled=false,bestReading=readings.length?readings[0]:null,watchId=null;
-    const finish=function(value,error){
-      if(settled)return; settled=true;
-      if(watchId!==null){try{navigator.geolocation.clearWatch(watchId)}catch(_){} }
-      if(error)reject(error);else resolve(value);
+  $('gpsBox').textContent='Acquiring high-accuracy GPS. Keep Location Services ON; internet is not required...';
+  const get=(opts)=>new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,opts));
+  let best=null;
+  try{
+    const pos=await get({enableHighAccuracy:true,timeout:15000,maximumAge:0});
+    best=pos;
+  }catch(_){}
+
+  $('gpsBox').textContent=best
+    ? 'GPS acquired. Refining accuracy...\nAccuracy: '+Math.round(best.coords.accuracy)+' m'
+    : 'Waiting for device GPS. Keep Location Services ON...';
+
+  const refined=await new Promise(function(resolve,reject){
+    if(!navigator.geolocation){reject(new Error('This device/browser does not provide geolocation.'));return}
+    let settled=false;
+    let watchId=null;
+    const started=Date.now();
+    const finish=function(pos,err){
+      if(settled)return;
+      settled=true;
+      if(watchId!==null){try{navigator.geolocation.clearWatch(watchId)}catch(_){} watchId=null}
+      if(pos)best=pos;
+      if(best){resolve(best);return}
+      reject(err||new Error('GPS could not be captured. Turn on Location Services and try again.'));
     };
-    const timer=setTimeout(function(){
-      if(bestReading)finish(bestReading);else finish(null,new Error('GPS could not be obtained within 45 seconds. Keep Location Services ON and try again.'));
-    },30000);
-    try{
-      watchId=navigator.geolocation.watchPosition(function(pos){
-        add(pos); const latest=readings[readings.length-1];
-        if(!bestReading||latest.accuracy<bestReading.accuracy)bestReading=latest;
-        if(bestReading.accuracy<=35){clearTimeout(timer);finish(bestReading);}
-      },function(err){
-        clearTimeout(timer);
-        if(bestReading)finish(bestReading);else finish(null,new Error(err&&err.message?err.message:'GPS could not be obtained. Keep Location Services ON.'));
-      },{enableHighAccuracy:true,timeout:10000,maximumAge:0});
-    }catch(e){clearTimeout(timer);if(bestReading)finish(bestReading);else finish(null,e);}
+    const onSuccess=function(pos){
+      if(!best || Number(pos.coords.accuracy)<Number(best.coords.accuracy))best=pos;
+      $('gpsBox').textContent='GPS acquired. Refining accuracy...\nAccuracy: '+Math.round(best.coords.accuracy)+' m';
+      const age=Date.now()-started;
+      if(Number(best.coords.accuracy)<=30 || age>=10000)finish(best);
+    };
+    const onError=function(err){
+      if(Date.now()-started>=12000)finish(null,err);
+    };
+    try{watchId=navigator.geolocation.watchPosition(onSuccess,onError,{enableHighAccuracy:true,timeout:12000,maximumAge:0});}
+    catch(e){finish(null,e);return}
+    setTimeout(function(){finish(best);},12000);
   });
+
+  return {
+    latitude:refined.coords.latitude,
+    longitude:refined.coords.longitude,
+    accuracy:refined.coords.accuracy,
+    capturedAt:new Date().toISOString()
+  };
 }
 
 window.captureSchoolLocation=async function(){
@@ -496,8 +516,19 @@ function showActiveVisitFromStorage(v){
 
 window.addEventListener('online',async function(){connectionUI();setMessage('Internet restored. Checking pending field records...','ok');try{if(offlineToken&&window.opener&&!window.opener.closed)await syncViaPortalIfAvailable();if(window.opener&&!window.opener.closed)sendPortalHello()}catch(_){} });
 window.addEventListener('offline',function(){connectionUI();setMessage('You are offline. Field visits continue to work using the data already stored on this device.','warn')});
-window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredInstallPrompt=e;$('installBtn').style.display='inline-block'});
-window.installApp=async function(){if(!deferredInstallPrompt)return;deferredInstallPrompt.prompt();try{await deferredInstallPrompt.userChoice}catch(_){}deferredInstallPrompt=null;$('installBtn').style.display='none'};
+function isStandalone(){return window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}
+window.showInstallHelp=function(){$('installHelp').classList.remove('hidden')}
+window.hideInstallHelp=function(){$('installHelp').classList.add('hidden')}
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredInstallPrompt=e;$('installBtn').style.display='inline-flex';$('installStatus').textContent='This device can install the PEN Field Visit App for quick offline access.'});
+window.addEventListener('appinstalled',function(){deferredInstallPrompt=null;$('installBtn').style.display='none';$('installStatus').textContent='PEN Field Visit App is installed. You can open it from the home screen or taskbar.';});
+window.installApp=async function(){
+  if(isStandalone()){setMessage('PEN Field Visit App is already installed and running as an app.','ok');return}
+  if(!deferredInstallPrompt){$('installHelp').classList.remove('hidden');return}
+  try{deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;}catch(_){}
+  deferredInstallPrompt=null;$('installBtn').style.display='none';
+};
+if(isStandalone()){$('installBtn').style.display='none';$('installStatus').textContent='Running as an installed app. For refresh and synchronization, reconnect and open the app from the PEN Portal.';}
+
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js',{scope:'./'}).then(function(reg){reg.update().catch(function(){});}).catch(function(){setMessage('Offline application caching is not active yet. Make sure the PEN website has the supplied /sw.js file, then reload this page while online.','warn')})}
 
