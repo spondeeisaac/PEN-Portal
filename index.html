@@ -35,9 +35,32 @@ button.secondary{background:#4b6265}button.warn{background:#947000}button.danger
 hr{border:0;border-top:1px solid var(--line);margin:15px 0}
 .install{display:none}
 footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
+
+/* MAIN PEN PORTAL SHELL */
+#mainPortalShell{display:none;position:fixed;inset:0;background:#fff;z-index:99999;overflow:hidden}
+#mainPortalFrame{display:none;width:100%;height:100%;border:0;background:#fff}
+.main-portal-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#fff}
+.main-portal-loading-card{text-align:center;padding:28px}
+.main-portal-logo{width:58px;height:58px;margin:0 auto 14px;border-radius:12px;background:#009999;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-family:Arial,sans-serif;font-size:18px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.main-portal-loading-title{font-family:Arial,sans-serif;font-size:22px;font-weight:800;color:#006b6b}
+.main-portal-loading-text{margin-top:7px;font-family:Arial,sans-serif;font-size:13px;color:#667777}
+
 </style>
 </head>
 <body>
+
+<div id="mainPortalShell">
+  <div id="mainPortalLoading" class="main-portal-loading">
+    <div class="main-portal-loading-card">
+      <div class="main-portal-logo">PEN</div>
+      <div class="main-portal-loading-title">PEN Cascade Portal</div>
+      <div class="main-portal-loading-text">Loading secure portal...</div>
+    </div>
+  </div>
+  <iframe id="mainPortalFrame" title="PEN Cascade Portal" frameborder="0" allow="clipboard-read; clipboard-write"></iframe>
+</div>
+
+<div id="fieldVisitShell">
 <div id="legacyCaptureApp" class="wrap hidden">
   <div class="card"><h1>PEN GPS Field Visit Capture</h1><div id="legacyModeText" class="small">Secure GPS capture for PEN field visit verification.</div><div id="legacySchoolInfo" class="status">Loading visit information...</div></div>
   <div class="card"><h2 id="legacyStatusTitle">Ready to capture GPS</h2><div id="legacyStatus" class="status">This page can capture device GPS and return it to the PEN Portal.</div><div id="legacyGpsBox" class="gps">GPS not captured yet.</div><button id="legacyCaptureBtn">Capture GPS &amp; Return to PEN</button></div>
@@ -145,8 +168,88 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 
   <footer>PEN Field Visit Offline App • Application version 2026.13</footer>
 </div>
+</div>
 
 
+<script>
+(function(){
+  'use strict';
+  const MAIN_PORTAL_URL='https://script.google.com/macros/s/AKfycbz4OAIXJVtUWOPUjIXz6WV4DWYLWepJsQMCshp5IKEa4efBcrtrisoXgmRqeLYfIyDicA/exec';
+  const FIELD_VISIT_PARAM='field-visits';
+  const APPS_SCRIPT_ORIGIN=new URL(MAIN_PORTAL_URL).origin;
+  const shell=document.getElementById('mainPortalShell');
+  const frame=document.getElementById('mainPortalFrame');
+  const loading=document.getElementById('mainPortalLoading');
+  const params=new URLSearchParams(window.location.search);
+  const isFieldVisit=String(params.get('app')||'').toLowerCase()===FIELD_VISIT_PARAM || ['CHECK_IN','CHECK_OUT'].includes(String(params.get('mode')||'').toUpperCase());
+  const fieldShell=document.getElementById('fieldVisitShell');
+
+  function getToken(){
+    try{return String(localStorage.getItem('PEN_SESSION_TOKEN')||'').trim();}catch(e){return ''}
+  }
+  function saveToken(token,account){
+    try{
+      if(token)localStorage.setItem('PEN_SESSION_TOKEN',String(token));
+      if(account)localStorage.setItem('PEN_ACCOUNT',JSON.stringify(account));
+    }catch(e){}
+  }
+  function clearToken(){
+    try{localStorage.removeItem('PEN_SESSION_TOKEN');localStorage.removeItem('PEN_ACCOUNT');sessionStorage.removeItem('PEN_SESSION_TOKEN');}catch(e){}
+  }
+  function showMainFrame(url){
+    if(!shell||!frame)return;
+    shell.style.display='block';
+    if(fieldShell)fieldShell.style.display='none';
+    loading.style.display='flex';
+    frame.style.display='none';
+    frame.src=url;
+    frame.onload=function(){loading.style.display='none';frame.style.display='block'};
+  }
+  function showLogin(){
+    clearToken();
+    const u=new URL(MAIN_PORTAL_URL);
+    u.searchParams.set('view','login');
+    u.searchParams.set('embedded','1');
+    u.searchParams.set('t',Date.now());
+    showMainFrame(u.toString());
+  }
+  function showDashboard(token){
+    const u=new URL(MAIN_PORTAL_URL);
+    u.searchParams.set('view','dashboard');
+    u.searchParams.set('token',token);
+    u.searchParams.set('t',Date.now());
+    showMainFrame(u.toString());
+  }
+
+  window.addEventListener('message',function(event){
+    const d=event&&event.data||{};
+    if(!d || d.source!=='PEN_LOGIN_2026' || event.origin!==APPS_SCRIPT_ORIGIN)return;
+    if(d.type==='PEN_LOGIN_AUTHENTICATED' || d.type==='PEN_LOGIN_SUCCESS'){
+      if(d.token)saveToken(d.token,d.account||null);
+      if(d.type==='PEN_LOGIN_SUCCESS' && d.token)showDashboard(String(d.token));
+      return;
+    }
+  });
+
+  window.addEventListener('message',function(event){
+    const d=event&&event.data||{};
+    if(!d || event.origin!==APPS_SCRIPT_ORIGIN)return;
+    if(d.type==='PEN_SESSION_INVALID'){
+      showLogin();
+    }
+  });
+
+  if(isFieldVisit){
+    if(shell)shell.style.display='none';
+    if(fieldShell)fieldShell.style.display='block';
+    return;
+  }
+
+  if(fieldShell)fieldShell.style.display='none';
+  const token=getToken();
+  if(token)showDashboard(token);else showLogin();
+})();
+</script>
 
 <script>
 (function(){
@@ -156,7 +259,9 @@ const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026';
 const DB_VERSION=1;
 const BRIDGE_SOURCE='PEN_FIELD_VISIT_PWA_2026';
 const p=new URLSearchParams(location.search);
+const appParam=String(p.get('app')||'').trim().toLowerCase();
 const legacyMode=['CHECK_IN','CHECK_OUT'].indexOf(String(p.get('mode')||'').toUpperCase())>=0 && !p.get('app');
+if(appParam!=='field-visits' && !legacyMode){ return; }
 if(legacyMode){
   document.getElementById('legacyCaptureApp').classList.remove('hidden');
   document.getElementById('pwaApp').classList.add('hidden');
@@ -494,7 +599,7 @@ window.refreshOfflineData=async function(){
 };
 
 function returnToMainPortal(){
-  const portalUrl='https://www.practicaleducationnetwork.com/portal';
+  const portalUrl='https://spondeeisaac.github.io/PEN-Portal/';
   try{
     if(window.opener && !window.opener.closed){
       try{
