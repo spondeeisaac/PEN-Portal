@@ -132,6 +132,8 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 
   <div id="activeCard" class="card hidden">
     <h2>2. Active Visit</h2>
+    <div id="activeVisitIdentity" class="status warn" style="margin-bottom:10px"></div>
+    <div id="visitTeacherSummary" class="status" style="margin-bottom:10px">No teacher records saved for this visit yet.</div>
     <div id="visitStatus" class="status"></div>
     <div id="gpsBox" class="gps">Waiting for GPS...</div>
     <label class="label" for="notes">Visit Notes</label>
@@ -140,7 +142,9 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
   </div>
 
   <div id="coachingCard" class="card hidden">
-    <h2>3. Coaching / Observation Record</h2>
+    <h2>3. Teacher Coaching / Observation</h2>
+    <div class="status">One school visit can include several teachers. Save one teacher record at a time; the form clears automatically after each successful save.</div>
+    <div id="teacherSaveStatus" class="small" style="margin-top:8px"></div>
     <label class="label" for="teacherID">Teacher ID</label><input id="teacherID" placeholder="Optional">
     <label class="label" for="teacherName">Teacher Name</label><input id="teacherName" placeholder="Teacher name">
     <label class="label" for="subject">Subject</label><input id="subject" placeholder="Subject">
@@ -151,13 +155,13 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <label class="label" for="supportNeeded">Support Needed</label><textarea id="supportNeeded"></textarea>
     <label class="label" for="agreedAction">Agreed Action</label><textarea id="agreedAction"></textarea>
     <label class="label" for="nextFollowUpDate">Next Follow-up Date</label><input id="nextFollowUpDate" type="date">
-    <button id="saveCoachingBtn" onclick="saveCoaching()">Save Coaching Record</button>
+    <button id="saveCoachingBtn" onclick="saveCoaching()">Save Teacher Record &amp; Clear Form</button>
   </div>
 
   <div class="card">
     <h2>Offline Queue</h2>
     <div id="queueInfo" class="queue">No pending offline records.</div>
-    <div class="small" style="margin-top:8px">Records remain on this device until the PEN server confirms successful synchronization. Closing the browser does not delete the queue.</div>
+    <div class="small" style="margin-top:8px">Records remain on this device until the PEN server confirms successful synchronization. When internet returns while the app is open, PEN will automatically attempt synchronization. The Sync Now button remains available as a manual backup.</div>
     <button class="secondary" onclick="syncQueue()">Sync Now</button>
   </div>
 
@@ -306,7 +310,7 @@ function getToken(){
 <script>
 (function(){
 'use strict';
-const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.13';
+const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.14';
 const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026';
 const DB_VERSION=1;
 const BRIDGE_SOURCE='PEN_FIELD_VISIT_PWA_2026';
@@ -348,6 +352,7 @@ let bridgeFrameLoaded=false;
 let bridgeHelloTimer=null;
 const bridgePending={};
 let syncRunning=false;
+let autoSyncTimer=null;
 let bridgePinged=false;
 let bridgeReadyOrigin='';
 
@@ -500,9 +505,46 @@ async function renderQueue(){
 function updateExpiry(v){$('expiry').textContent=v?fmt(v):'—'}
 async function refreshMeta(){const exp=await metaGet('offlineExpiresAt');updateExpiry(exp);const last=await metaGet('lastSync');$('lastSync').textContent=last?fmt(last):'Never';await renderQueue()}
 
+function setButtonState(id,busyText,disabled){
+  const b=$(id);
+  if(!b)return;
+  if(disabled){if(!b.dataset.originalText)b.dataset.originalText=b.textContent;b.textContent=busyText||b.textContent;}
+  else if(b.dataset.originalText){b.textContent=b.dataset.originalText;delete b.dataset.originalText;}
+  b.disabled=!!disabled;
+}
+async function getVisitTeacherNames(){
+  if(!activeVisit)return [];
+  return (await metaGet('visitTeachers:'+activeVisit.visitID))||[];
+}
+async function renderVisitTeacherSummary(){
+  const box=$('visitTeacherSummary');
+  if(!box)return;
+  if(!activeVisit){box.textContent='No active visit.';return;}
+  const names=await getVisitTeacherNames();
+  box.textContent=names.length
+    ? ('Teachers recorded: '+names.length+' — '+names.join(', '))
+    : 'No teacher records saved for this visit yet.';
+}
+function lockVisitStartControls(){
+  const has=!!activeVisit;
+  $('school').disabled=has;
+  $('visitType').disabled=has;
+  $('startBtn').disabled=has;
+  const cap=document.querySelector('#locationCaptureWrap button');
+  if(cap)cap.disabled=has;
+}
+function scheduleAutoSync(delay){
+  if(autoSyncTimer)clearTimeout(autoSyncTimer);
+  autoSyncTimer=setTimeout(async function(){
+    autoSyncTimer=null;
+    if(!document.hidden && online() && offlineToken && window.opener && !window.opener.closed && !syncRunning){
+      await syncViaPortalIfAvailable();
+    }
+  }, Math.max(500,Number(delay)||1500));
+}
 async function enqueue(action,payload){
   const item={id:uid('QUEUE'),action:String(action).toUpperCase(),payload:payload,createdAt:isoNow(),attempts:0,lastError:''};
-  await idbPut('queue',item);await renderQueue();
+  await idbPut('queue',item);await renderQueue();scheduleAutoSync(1200);
   return item;
 }
 async function removeQueue(ids){for(const id of ids)await idbDelete('queue',id);await renderQueue()}
@@ -573,6 +615,8 @@ async function captureGPS(){
 
 window.captureSchoolLocation=async function(){
   const s=selectedSchool();if(!s){setMessage('Select a school first.','warn');return}
+  if(activeVisit){setMessage('Finish the current visit before changing a school location.','warn');return}
+  const btn=document.querySelector('#locationCaptureWrap button');if(btn)btn.disabled=true;
   try{
     setMessage('Capturing the school\'s GPS location. Stay at the school while the device obtains a good reading.','');
     const gps=await captureGPS();
@@ -580,14 +624,15 @@ window.captureSchoolLocation=async function(){
     await enqueue('SCHOOL_LOCATION',payload);
     s.latitude=gps.latitude;s.longitude=gps.longitude;s.locationStatus='PENDING_REVIEW';s.locationSource='FIELD_CAPTURE';s.gpsAccuracy=gps.accuracy;await idbPut('schools',s);renderSchoolOptions();
     setMessage('School location saved on this device and queued for PEN review. It will not become the authoritative location until approved.','warn');
-    if(online())syncQueue();
+    if(online()){setMessage('School location saved. PEN will synchronize it automatically when the portal connection is available.','ok');scheduleAutoSync(300)}
   }catch(e){setMessage('School location was not captured: '+(e.message||e),'bad')}
+  finally{if(btn)btn.disabled=false}
 };
 
 window.startVisit=async function(){
   const s=selectedSchool();if(!s){setMessage('Please select a school first.','warn');return}
-  if(activeVisit){setMessage('There is already an active visit on this device. Complete or clear it before starting another.','warn');return}
-  $('startBtn').disabled=true;
+  if(activeVisit){setMessage('An active visit already exists for '+(activeVisit.school&&activeVisit.school.school||'the selected school')+'. Complete that visit before starting another.','warn');return}
+  setButtonState('startBtn','Starting visit…',true);
   try{
     setMessage('Capturing GPS. Please remain at the school while the device obtains the best available reading.','');
     const gps=await captureGPS();
@@ -596,18 +641,19 @@ window.startVisit=async function(){
     const payload={action:'CHECK_IN',visitID:visitID,idempotencyKey:visitID,schoolKey:s.schoolKey,school:s.school,county:s.county,district:s.district,visitType:$('visitType').value,schoolLatitude:s.latitude,schoolLongitude:s.longitude,radiusMeters:s.radiusMeters||150,latitude:gps.latitude,longitude:gps.longitude,accuracy:gps.accuracy,offlineCreated:!online(),capturedAt:gps.capturedAt,notes:''};
     await enqueue('CHECK_IN',payload);
     activeVisit={visitID:visitID,school:s,pending:true,payload:payload,checkIn:gps};await metaSet('activeVisit',activeVisit);
+    await metaSet('visitTeachers:'+visitID,[]);lockVisitStartControls();await renderVisitTeacherSummary();
     $('activeCard').classList.remove('hidden');$('coachingCard').classList.remove('hidden');
     $('visitStatus').textContent='Visit saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');
     $('visitStatus').className='status '+(verification.status==='VERIFIED'||verification.status==='VERIFIED_LOW_ACCURACY'?'':'warn');
     $('gpsBox').textContent='Check-in GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
-    $('startBtn').disabled=false;setMessage(online()?'Visit saved and will synchronize now.':'Visit saved offline. You can continue without internet.','ok');
-    if(online())await syncQueue();
-  }catch(e){$('startBtn').disabled=false;setMessage('Visit could not be started: '+(e.message||e),'bad')}
+    setButtonState('startBtn','',false);lockVisitStartControls();setMessage(online()?'Visit started successfully. The check-in is saved and automatic synchronization will begin when the portal connection is available.':'Visit started successfully and saved offline. You can continue without internet.','ok');
+    if(online())scheduleAutoSync(300);
+  }catch(e){setButtonState('startBtn','',false);lockVisitStartControls();setMessage('Visit could not be started: '+(e.message||e),'bad')}
 };
 
 window.checkOutVisit=async function(){
   if(!activeVisit){setMessage('There is no active visit.','warn');return}
-  $('checkoutBtn').disabled=true;
+  setButtonState('checkoutBtn','Checking out…',true);
   try{
     setMessage('Capturing GPS for check-out...','');
     const gps=await captureGPS();
@@ -617,23 +663,44 @@ window.checkOutVisit=async function(){
     $('visitStatus').textContent='Check-out saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');
     $('visitStatus').className='status '+(verification.status==='VERIFIED'||verification.status==='VERIFIED_LOW_ACCURACY'?'':'warn');
     $('gpsBox').textContent+='\n\nCheck-out GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
-    $('checkoutBtn').disabled=true;await metaSet('activeVisit',null);activeVisit=null;setMessage(online()?'Check-out saved and will synchronize now.':'Check-out saved offline.','ok');
-    if(online())await syncQueue();
-  }catch(e){$('checkoutBtn').disabled=false;setMessage('Check-out could not be completed: '+(e.message||e),'bad')}
+    $('checkoutBtn').disabled=true;
+    $('notes').value='';
+    await metaSet('activeVisit',null);activeVisit=null;lockVisitStartControls();await renderVisitTeacherSummary();
+    $('coachingCard').classList.add('hidden');
+    setMessage(online()?'Visit checked out successfully. Automatic synchronization will complete the remaining records.':'Visit checked out and saved offline. It will synchronize when internet is available.','ok');
+    if(online())scheduleAutoSync(300);
+  }catch(e){setButtonState('checkoutBtn','',false);setMessage('Check-out could not be completed: '+(e.message||e),'bad')}
 };
 
 window.saveCoaching=async function(){
-  if(!activeVisit){setMessage('Start a visit before saving a coaching record.','warn');return}
-  $('saveCoachingBtn').disabled=true;
-  const payload={visitID:activeVisit.visitID,idempotencyKey:uid('COACH'),teacherID:$('teacherID').value||'',teacherName:$('teacherName').value||'',subject:$('subject').value||'',grade:$('grade').value||'',coachingFocus:$('coachingFocus').value||'',observationSummary:$('observationSummary').value||'',strengthsObserved:$('strengthsObserved').value||'',supportNeeded:$('supportNeeded').value||'',agreedAction:$('agreedAction').value||'',nextFollowUpDate:$('nextFollowUpDate').value||'',surveyVersion:'PRE-M&E-V1',mePayload:{},clientSubmittedAt:isoNow()};
-  try{await enqueue('COACHING',payload);setMessage(online()?'Coaching record saved and will synchronize now.':'Coaching record saved offline.','ok');if(online())await syncQueue()}catch(e){setMessage('Coaching record could not be saved locally: '+(e.message||e),'bad')}finally{$('saveCoachingBtn').disabled=false}
+  if(!activeVisit){setMessage('Start a school visit before saving a teacher record.','warn');return}
+  const teacherID=$('teacherID').value.trim();
+  const teacherName=$('teacherName').value.trim();
+  if(!teacherID && !teacherName){setMessage('Enter the teacher name or Teacher ID before saving.','warn');$('teacherName').focus();return}
+  setButtonState('saveCoachingBtn','Saving teacher record…',true);
+  const payload={visitID:activeVisit.visitID,idempotencyKey:uid('COACH'),teacherID:teacherID,teacherName:teacherName,subject:$('subject').value.trim(),grade:$('grade').value.trim(),coachingFocus:$('coachingFocus').value.trim(),observationSummary:$('observationSummary').value.trim(),strengthsObserved:$('strengthsObserved').value.trim(),supportNeeded:$('supportNeeded').value.trim(),agreedAction:$('agreedAction').value.trim(),nextFollowUpDate:$('nextFollowUpDate').value||'',surveyVersion:'PRE-M&E-V1',mePayload:{},clientSubmittedAt:isoNow()};
+  try{
+    await enqueue('COACHING',payload);
+    const key='visitTeachers:'+activeVisit.visitID;
+    const names=await getVisitTeacherNames();
+    names.push(teacherName||teacherID);
+    await metaSet(key,names);
+    ['teacherID','teacherName','subject','grade','coachingFocus','observationSummary','strengthsObserved','supportNeeded','agreedAction','nextFollowUpDate'].forEach(function(id){$(id).value=''});
+    await renderVisitTeacherSummary();
+    $('teacherSaveStatus').textContent='✓ '+(teacherName||teacherID)+' saved. The form is ready for the next teacher.';
+    setMessage(online()?'Teacher record saved. Automatic synchronization will begin when the portal connection is available.':'Teacher record saved on this device. Waiting for internet.','ok');
+    if(online())scheduleAutoSync(300);
+  }catch(e){setMessage('Teacher record could not be saved locally: '+(e.message||e),'bad')}
+  finally{setButtonState('saveCoachingBtn','',false)}
 };
 
 window.syncQueue=async function(){
+  if(syncRunning)return;
   if(!online()){setMessage('Internet is unavailable. Pending records remain safely stored on this device.','warn');return}
   if(!offlineToken){setMessage('Offline access is not prepared. Open the Field Visit App from the PEN Portal while online.','bad');return}
   if(!window.opener || window.opener.closed){setMessage('Open the Field Visit App from the PEN Portal while online to synchronize pending records.','warn');return}
-  await syncViaPortalIfAvailable();
+  const ok=await syncViaPortalIfAvailable();
+  if(ok)await renderQueue();
 };
 
 window.refreshOfflineData=async function(){
@@ -667,7 +734,7 @@ async function initialLoad(){
   connectionUI();
   try{
     await loadSchoolsFromDB();
-    const active=await metaGet('activeVisit');if(active){activeVisit=active;showActiveVisitFromStorage(active)}
+    const active=await metaGet('activeVisit');if(active){activeVisit=active;showActiveVisitFromStorage(active);lockVisitStartControls();await renderVisitTeacherSummary()}
     await refreshMeta();
 
     if(online() && window.opener && !window.opener.closed){
@@ -695,11 +762,13 @@ async function initialLoad(){
   connectionUI();
 }
 
-function showActiveVisitFromStorage(v){
-  $('activeCard').classList.remove('hidden');$('coachingCard').classList.remove('hidden');$('visitStatus').textContent='An active visit is saved on this device for '+(v.school&&v.school.school||'the selected school')+'.';$('visitStatus').className='status warn';$('gpsBox').textContent=v.checkIn?'Check-in GPS\nLatitude: '+v.checkIn.latitude+'\nLongitude: '+v.checkIn.longitude+'\nAccuracy: '+Math.round(v.checkIn.accuracy)+' m':'Visit saved offline.';
+async function showActiveVisitFromStorage(v){
+  $('activeCard').classList.remove('hidden');$('coachingCard').classList.remove('hidden');$('activeVisitIdentity').textContent='ACTIVE VISIT: '+(v.school&&v.school.school||'the selected school')+' — '+(v.school&&v.school.district||'')+', '+(v.school&&v.school.county||'');$('visitStatus').textContent='This visit is saved on this device and can continue even without internet.';$('visitStatus').className='status warn';$('gpsBox').textContent=v.checkIn?'Check-in GPS\nLatitude: '+v.checkIn.latitude+'\nLongitude: '+v.checkIn.longitude+'\nAccuracy: '+Math.round(v.checkIn.accuracy)+' m':'Visit saved offline.';
 }
 
-window.addEventListener('online',async function(){connectionUI();setMessage('Internet restored. Checking pending field records...','ok');try{if(offlineToken&&window.opener&&!window.opener.closed)await syncViaPortalIfAvailable();if(window.opener&&!window.opener.closed)sendPortalHello()}catch(_){} });
+window.addEventListener('online',async function(){connectionUI();setMessage('Internet restored. Checking pending field records automatically…','ok');try{if(window.opener&&!window.opener.closed)sendPortalHello();scheduleAutoSync(500)}catch(_){} });
+document.addEventListener('visibilitychange',function(){if(!document.hidden)scheduleAutoSync(500)});
+setInterval(function(){if(!document.hidden&&online()&&offlineToken&&!syncRunning&&window.opener&&!window.opener.closed)scheduleAutoSync(200)},60000);
 window.addEventListener('offline',function(){connectionUI();setMessage('You are offline. Field visits continue to work using the data already stored on this device.','warn')});
 function isStandalone(){return window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}
 window.showInstallHelp=function(){$('installHelp').classList.remove('hidden')}
