@@ -1,4 +1,4 @@
-const CACHE_NAME = 'PEN-PORTAL-2026.7-LOGIN-HANDOFF-FIX';
+const CACHE_NAME = 'PEN-PORTAL-2026.8-LEARNING-LABS-OFFLINE';
 const APP_URL = new URL('./', self.location.href).href;
 const SW_URL = new URL('./sw.js', self.location.href).href;
 const MANIFEST_URL = new URL('./manifest.webmanifest', self.location.href).href;
