@@ -1,10 +1,19 @@
 {
-  "name": "PEN Portal",
-  "short_name": "PEN Portal",
-  "start_url": "./",
+  "name": "PEN Field Visit App",
+  "short_name": "PEN Field Visit",
+  "description": "Offline-first PEN field visit capture with GPS verification and later synchronization.",
+  "start_url": "./?app=field-visits",
   "scope": "./",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#f4f7f7",
   "theme_color": "#009999",
-  "description": "Practical Education Network Cascade Portal."
+  "icons": [
+    {
+      "src": "./pen-field-visit-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
