@@ -1,4 +1,4 @@
-/* PEN Cascade Portal PWA shell. Field Visit has a more specific worker in /field-visit/. */
+/* PEN Portal PWA shell. Field Visit has a more specific worker in /field-visit/. */
 'use strict';
 const CACHE_PREFIX = 'pen-main-portal-shell-';
 const CACHE_NAME = CACHE_PREFIX + '2026.1';
