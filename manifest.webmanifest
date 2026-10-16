@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "PEN Cascade Portal",
+  "name": "PEN Portal",
   "short_name": "PEN Portal",
-  "description": "PEN Cascade Portal for programme management, reporting, and education delivery.",
+  "description": "PEN Portal for programme management, reporting, and education delivery.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
