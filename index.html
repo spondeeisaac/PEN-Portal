@@ -26,7 +26,6 @@ button.secondary{background:#4b6265}button.warn{background:#947000}button.danger
 .gps{font-family:monospace;white-space:pre-wrap;background:#f4f7f7;border-radius:9px;padding:12px;font-size:12px;line-height:1.55}
 .queue{padding:11px;border-radius:9px;background:var(--warn);font-size:13px}.hidden{display:none!important}
 .metric{background:#f8fafb;border:1px solid var(--line);border-radius:9px;padding:11px}.metric strong{display:block;font-size:20px;margin-top:4px}
-.photo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}@media(max-width:500px){.photo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}.photo-item{border:1px solid var(--line);border-radius:9px;padding:8px;min-width:0;background:#fff}.photo-item img{display:block;width:100%;height:112px;object-fit:cover;border-radius:6px;background:#f4f7f7}.photo-item .small{font-size:11px;overflow-wrap:anywhere}.photo-item button{padding:8px;font-size:12px;margin-top:6px}.photo-item a{font-size:12px;display:inline-block;margin-top:6px}
 hr{border:0;border-top:1px solid var(--line);margin:15px 0}
 .install{display:none}
 #bridgeFrame{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;border:0;opacity:0}
@@ -242,16 +241,6 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <button id="saveLearningLabMonitoringBtn" onclick="saveActivityReport('FSO_LEARNING_LAB_MONITORING')">Save Learning Lab Monitoring Report</button>
   </div>
 
-  <div id="photoEvidenceCard" class="card hidden">
-    <h2>Visit Photo Evidence</h2>
-    <p class="small">Add up to three photos for this visit. Images are resized to low resolution and compressed on this device before being saved to the offline queue. Uploads resume when internet returns.</p>
-    <label class="label" for="photoEvidenceInput">Choose up to 3 photos</label>
-    <input id="photoEvidenceInput" type="file" accept="image/jpeg,image/png,image/webp" multiple onchange="handlePhotoSelection(this)">
-    <div class="small" style="margin-top:7px">Maximum: 3 photos per visit. Each image is converted to JPEG, resized to a maximum 640-pixel edge, and limited to about 120 KB. The original photo and its EXIF metadata are not uploaded.</div>
-    <div id="photoEvidenceCount" class="status" style="margin-top:10px">0 of 3 photos added.</div>
-    <div id="photoEvidenceList" class="photo-grid" aria-live="polite"></div>
-  </div>
-
   <div id="mePendingCard" class="card hidden">
     <h2>M&amp;E Visit — Form Pending</h2>
     <div class="status warn">The M&amp;E team has not yet supplied the approved survey questions. This is intentionally not a submission form. You may capture GPS check-in/check-out evidence for the visit, but do not record or submit an M&amp;E questionnaire until the official fields are provided.</div>
@@ -264,7 +253,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <button class="secondary" onclick="syncQueue()">Sync Now</button>
   </div>
 
-  <footer>PEN Field Visit Offline App • Application version 2026.5</footer>
+  <footer>PEN Field Visit Offline App • Application version 2026.4</footer>
 </div>
 
 <iframe id="bridgeFrame" title="PEN secure field bridge" aria-hidden="true"></iframe>
@@ -272,10 +261,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.6';
-const PHOTO_MAX_COUNT=3;
-const PHOTO_MAX_BYTES=120*1024;
-const PHOTO_MAX_EDGE=640;
+const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.4';
 const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026';
 const DB_VERSION=1;
 const BRIDGE_SOURCE='PEN_FIELD_VISIT_PWA_2026';
@@ -294,7 +280,6 @@ let dbPromise=null;
 let bridgeReady=false;
 const bridgePending={};
 let syncRunning=false;
-let photoProcessing=false;
 
 function $(id){return document.getElementById(id)}
 function uid(prefix){
@@ -413,7 +398,6 @@ function updateVisitTypeOptions(){
     LEARNING_LAB_FOLLOW_UP:"learningLabFollowUpCard", FSO_LEARNING_LAB_MONITORING:"fsoLearningLabMonitoringCard"
   };
   const canShowActivityForm=!!school||!!activeVisit;
-  const photoCard=$("photoEvidenceCard");if(photoCard)photoCard.classList.toggle("hidden",!activeVisit);
   ["coachingCard","observationCard","mePendingCard","followUpCard","monitoringCard","fsoCascadeMonitoringCard","logisticsSupportCard","issueEscalationCard","learningLabActivityCard","learningLabReadinessCard","learningLabFollowUpCard","fsoLearningLabMonitoringCard"].forEach(function(id){
     const el=$(id);if(el)el.classList.toggle("hidden",!canShowActivityForm||cardByType[type]!==id);
   });
@@ -512,7 +496,7 @@ window.startVisit=async function(){
     await enqueue('CHECK_IN',payload);
     activeVisit={visitID:visitID,school:s,pending:true,payload:payload,checkIn:gps,activityFormVersion:'2026.4',activityReportSaved:false};await metaSet('activeVisit',activeVisit);
     $('visitType').disabled=true;
-    $('activeCard').classList.remove('hidden');updateVisitTypeOptions();await renderPhotoEvidence();
+    $('activeCard').classList.remove('hidden');updateVisitTypeOptions();
     $('visitStatus').textContent='Visit saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');
     $('visitStatus').className='status '+(verification.status==='VERIFIED'||verification.status==='VERIFIED_LOW_ACCURACY'?'':'warn');
     $('gpsBox').textContent='Check-in GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
@@ -535,7 +519,7 @@ window.checkOutVisit=async function(){
     $('visitStatus').textContent='Check-out saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');
     $('visitStatus').className='status '+(verification.status==='VERIFIED'||verification.status==='VERIFIED_LOW_ACCURACY'?'':'warn');
     $('gpsBox').textContent+='\n\nCheck-out GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
-    $('checkoutBtn').disabled=true;await metaSet('activeVisit',null);activeVisit=null;$('visitType').disabled=false;$('photoEvidenceCard').classList.add('hidden');$('photoEvidenceList').innerHTML='';$('photoEvidenceInput').value='';setMessage(online()?'Check-out saved and will synchronize now.':'Check-out saved offline.','ok');
+    $('checkoutBtn').disabled=true;await metaSet('activeVisit',null);activeVisit=null;$('visitType').disabled=false;setMessage(online()?'Check-out saved and will synchronize now.':'Check-out saved offline.','ok');
     if(online())await syncQueue();
   }catch(e){$('checkoutBtn').disabled=false;setMessage('Check-out could not be completed: '+(e.message||e),'bad')}
 };
@@ -565,113 +549,6 @@ function collectActivityFormData(cardId){
 }
 function activityReportText(label,value){return value?label+': '+value:''}
 function activityReportNumber(value){const n=Number(value);return isFinite(n)?Math.max(0,Math.floor(n)):0}
-function photoEvidenceItemsForActiveVisit(queueItems){
-  if(!activeVisit)return [];
-  const saved=Array.isArray(activeVisit.photoEvidence)?activeVisit.photoEvidence:[];
-  const currentQueue=(queueItems||[]).filter(function(item){return item&&item.action==='PHOTO_EVIDENCE'&&item.payload&&String(item.payload.visitID)===String(activeVisit.visitID)});
-  const merged=new Map();
-  saved.forEach(function(item){if(item&&item.evidenceID)merged.set(String(item.evidenceID),Object.assign({},item));});
-  currentQueue.forEach(function(item){const p=item.payload||{},id=String(p.evidenceID||p.idempotencyKey||'');if(id){const old=merged.get(id)||{};merged.set(id,Object.assign({},old,{evidenceID:id,filename:p.filename||old.filename||'Visit photo',sizeBytes:p.sizeBytes||old.sizeBytes||0,status:old.status==='UPLOADED'?'UPLOADED':'PENDING',queueID:item.id,capturedAt:p.capturedAt||old.capturedAt||item.createdAt}));}});
-  return Array.from(merged.values()).sort(function(a,b){return String(a.capturedAt||'').localeCompare(String(b.capturedAt||''));});
-}
-async function renderPhotoEvidence(){
-  const card=$('photoEvidenceCard');if(!card)return;
-  if(!activeVisit){card.classList.add('hidden');return}
-  card.classList.remove('hidden');
-  const q=await idbAll('queue');
-  const photos=photoEvidenceItemsForActiveVisit(q);
-  if(!Array.isArray(activeVisit.photoEvidence))activeVisit.photoEvidence=[];
-  // Persist metadata inferred from the queue so a reload cannot accidentally lose the per-visit count.
-  photos.forEach(function(item){if(!activeVisit.photoEvidence.some(function(x){return String(x.evidenceID)===String(item.evidenceID)}))activeVisit.photoEvidence.push({evidenceID:item.evidenceID,filename:item.filename,sizeBytes:item.sizeBytes,status:item.status,capturedAt:item.capturedAt,uploadedAt:item.uploadedAt||''});});
-  await metaSet('activeVisit',activeVisit);
-  $('photoEvidenceCount').textContent=photos.length+' of '+PHOTO_MAX_COUNT+' photos added'+(photos.some(function(x){return x.status!=='UPLOADED'})?'. Some photos are waiting to sync.':'.');
-  const input=$('photoEvidenceInput');input.disabled=photoProcessing||photos.length>=PHOTO_MAX_COUNT;
-  input.setAttribute('aria-label',photos.length>=PHOTO_MAX_COUNT?'The maximum of three photos has been reached':'Choose up to '+(PHOTO_MAX_COUNT-photos.length)+' more photos');
-  const list=$('photoEvidenceList');list.innerHTML='';
-  if(!photos.length){const empty=document.createElement('div');empty.className='small';empty.textContent='No photos added yet.';list.appendChild(empty);return}
-  photos.forEach(function(photo,index){
-    const item=document.createElement('div');item.className='photo-item';
-    const queued=q.find(function(x){return x&&x.action==='PHOTO_EVIDENCE'&&x.payload&&String(x.payload.evidenceID||x.payload.idempotencyKey)===String(photo.evidenceID)});
-    if(queued&&queued.payload&&queued.payload.imageBase64){const img=document.createElement('img');img.alt='Low-resolution visit evidence photo '+(index+1);img.loading='lazy';img.src='data:image/jpeg;base64,'+queued.payload.imageBase64;item.appendChild(img)}
-    const title=document.createElement('div');title.className='small';title.style.marginTop='6px';title.textContent='Photo '+(index+1)+' · '+Math.max(1,Math.round(Number(photo.sizeBytes||0)/1024))+' KB';item.appendChild(title);
-    const state=document.createElement('div');state.className='small';state.textContent=photo.status==='UPLOADED'?'Uploaded to PEN Drive': 'Saved on device · waiting to sync';item.appendChild(state);
-    if(photo.status==='UPLOADED'&&photo.evidenceURL){const link=document.createElement('a');link.href=photo.evidenceURL;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Open evidence';item.appendChild(link)}
-    else if(queued){const remove=document.createElement('button');remove.type='button';remove.className='danger';remove.textContent='Remove photo';remove.onclick=function(){removePendingPhoto(photo.evidenceID)};item.appendChild(remove)}
-    list.appendChild(item);
-  });
-}
-function imageFileToLowResJpeg(file){
-  return new Promise(function(resolve,reject){
-    if(!file||!/^image\/(jpeg|png|webp)$/i.test(String(file.type||''))){reject(new Error('Please select a JPEG, PNG, or WebP image.'));return}
-    if(Number(file.size)>20*1024*1024){reject(new Error('That photo is too large to process on this device. Choose a smaller image.'));return}
-    const url=URL.createObjectURL(file),img=new Image();
-    img.onload=function(){
-      try{
-        const sourceW=Number(img.naturalWidth||img.width),sourceH=Number(img.naturalHeight||img.height);
-        if(!sourceW||!sourceH)throw new Error('The selected image could not be read.');
-        let scale=Math.min(1,PHOTO_MAX_EDGE/Math.max(sourceW,sourceH));
-        let output='';
-        for(let pass=0;pass<10;pass++){
-          const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(sourceW*scale));canvas.height=Math.max(1,Math.round(sourceH*scale));
-          const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw new Error('Image compression is not supported on this device.');
-          ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
-          for(const quality of [0.58,0.5,0.42,0.34]){
-            output=canvas.toDataURL('image/jpeg',quality);
-            const raw=output.substring(output.indexOf(',')+1);const bytes=Math.floor(raw.length*3/4)-(raw.endsWith('==')?2:raw.endsWith('=')?1:0);
-            if(bytes>0&&bytes<=PHOTO_MAX_BYTES){URL.revokeObjectURL(url);resolve({imageBase64:raw,sizeBytes:bytes,width:canvas.width,height:canvas.height});return}
-          }
-          scale*=0.82;
-          if(Math.max(sourceW*scale,sourceH*scale)<240)break;
-        }
-        throw new Error('The photo could not be compressed below 120 KB. Choose another image.');
-      }catch(e){URL.revokeObjectURL(url);reject(e)}
-    };
-    img.onerror=function(){URL.revokeObjectURL(url);reject(new Error('The image could not be opened. Try a JPEG photo from the camera.'))};
-    img.src=url;
-  });
-}
-window.handlePhotoSelection=async function(input){
-  const files=Array.from(input&&input.files||[]);if(input)input.value='';
-  if(!files.length)return;
-  if(photoProcessing){setMessage('Please wait for the current photo compression to finish.','warn');return}
-  if(!activeVisit){setMessage('Start a field visit before adding photo evidence.','warn');return}
-  const existing=await photoEvidenceCountForVisit(activeVisit.visitID);
-  if(photoProcessing){setMessage('Please wait for the current photo compression to finish.','warn');return}
-  if(files.length>PHOTO_MAX_COUNT-existing){setMessage('You can add '+Math.max(0,PHOTO_MAX_COUNT-existing)+' more photo(s). The limit is three per visit.','warn');return}
-  photoProcessing=true;input.disabled=true;$('checkoutBtn').disabled=true;
-  try{
-    for(let i=0;i<files.length;i++){
-      setMessage('Compressing photo '+(i+1)+' of '+files.length+' on this device...','');
-      const converted=await imageFileToLowResJpeg(files[i]);
-      const evidenceID=uid('PHOTO');
-      const visitType=String(activeVisit.payload&&activeVisit.payload.visitType||'').toUpperCase();
-      const gps=activeVisit.checkIn||{};
-      const payload={evidenceID:evidenceID,idempotencyKey:evidenceID,visitID:activeVisit.visitID,filename:evidenceID+'.jpg',mimeType:'image/jpeg',imageBase64:converted.imageBase64,sizeBytes:converted.sizeBytes,width:converted.width,height:converted.height,capturedAt:isoNow(),activityType:visitType,latitude:gps.latitude==null?'':gps.latitude,longitude:gps.longitude==null?'':gps.longitude,gpsAccuracy:gps.accuracy==null?'':gps.accuracy,notes:'Low-resolution photo compressed on device by PEN Field Visit PWA.'};
-      await enqueue('PHOTO_EVIDENCE',payload);
-      if(!Array.isArray(activeVisit.photoEvidence))activeVisit.photoEvidence=[];
-      activeVisit.photoEvidence.push({evidenceID:evidenceID,filename:payload.filename,sizeBytes:converted.sizeBytes,status:'PENDING',capturedAt:payload.capturedAt});
-      await metaSet('activeVisit',activeVisit);
-      await renderPhotoEvidence();
-    }
-    setMessage(files.length+' low-resolution photo(s) saved locally to this visit. '+(online()?'Upload will begin now.':'They will upload when connectivity returns.'),'ok');
-    if(online())await syncQueue();
-  }catch(e){setMessage('Photo evidence was not fully added: '+(e.message||e)+'. Photos already saved remain in the offline queue.','warn')}
-  finally{photoProcessing=false;if(activeVisit)$('checkoutBtn').disabled=false;if(input)input.disabled=(await photoEvidenceCountForVisit(activeVisit&&activeVisit.visitID||'')>=PHOTO_MAX_COUNT);if(activeVisit)await renderPhotoEvidence()}
-};
-async function photoEvidenceCountForVisit(visitID){
-  const ids={};
-  if(activeVisit&&String(activeVisit.visitID)===String(visitID)&&Array.isArray(activeVisit.photoEvidence))activeVisit.photoEvidence.forEach(function(p){if(p&&p.evidenceID)ids[String(p.evidenceID)]=true});
-  const q=await idbAll('queue');q.forEach(function(item){if(item&&item.action==='PHOTO_EVIDENCE'&&item.payload&&String(item.payload.visitID)===String(visitID)){const id=String(item.payload.evidenceID||item.payload.idempotencyKey||'');if(id)ids[id]=true}});
-  return Object.keys(ids).length;
-}
-window.removePendingPhoto=async function(evidenceID){
-  if(!activeVisit)return;
-  const id=String(evidenceID||'');const photos=Array.isArray(activeVisit.photoEvidence)?activeVisit.photoEvidence:[];const itemMeta=photos.find(function(p){return String(p.evidenceID)===id});
-  if(!itemMeta||itemMeta.status==='UPLOADED'){setMessage('Uploaded evidence is retained for the audit trail.','warn');return}
-  const q=await idbAll('queue');const queued=q.find(function(x){return x&&x.action==='PHOTO_EVIDENCE'&&x.payload&&String(x.payload.evidenceID)===id&&String(x.payload.visitID)===String(activeVisit.visitID)});
-  if(!queued){setMessage('This photo is no longer in the local upload queue. Refresh the evidence list.','warn');return}
-  await idbDelete('queue',queued.id);activeVisit.photoEvidence=photos.filter(function(p){return String(p.evidenceID)!==id});await metaSet('activeVisit',activeVisit);await renderPhotoEvidence();await renderQueue();setMessage('Pending photo removed from this visit.','ok');
-};
 window.saveActivityReport=async function(type){
   if(!activeVisit){setMessage('Start a GPS-verified visit before saving this activity form.','warn');return}
   const selectedType=String(activeVisit.payload&&activeVisit.payload.visitType||$('visitType').value||'').toUpperCase();
@@ -731,21 +608,11 @@ window.syncQueue=async function(){
   try{
     const q=await idbAll('queue');q.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
     let processed=0;const failed=[];
-    const batchSize=q.some(function(item){return item&&item.action==='PHOTO_EVIDENCE'})?3:25;
-    for(let i=0;i<q.length;i+=batchSize){
-      const batch=q.slice(i,i+batchSize);
+    for(let i=0;i<q.length;i+=25){
+      const batch=q.slice(i,i+25);
       const resp=await bridgeCall('SYNC',[offlineToken,batch]);
       const resultList=Array.isArray(resp&&resp.results)?resp.results:[];const removed=[];
-      for(const r of resultList){
-        if(r.success)removed.push(r.id);
-        const queuedItem=batch.find(function(x){return String(x.id)===String(r.id)});
-        if(r.success&&queuedItem&&queuedItem.action==='PHOTO_EVIDENCE'&&queuedItem.payload&&activeVisit&&String(activeVisit.visitID)===String(queuedItem.payload.visitID)){
-          if(!Array.isArray(activeVisit.photoEvidence))activeVisit.photoEvidence=[];
-          const p=activeVisit.photoEvidence.find(function(x){return String(x.evidenceID)===String(queuedItem.payload.evidenceID)});
-          if(p){p.status='UPLOADED';p.uploadedAt=isoNow();p.evidenceURL=r.result&&r.result.evidenceURL||'';p.fileID=r.result&&r.result.fileID||'';p.sizeBytes=queuedItem.payload.sizeBytes||p.sizeBytes;}
-          await metaSet('activeVisit',activeVisit);
-        }
-      }
+      for(const r of resultList){if(r.success)removed.push(r.id)}
       await removeQueue(removed);
       processed+=removed.length;
       for(const item of batch){if(!removed.includes(item.id)){const serverResult=resultList.find(x=>x.id===item.id);const stored=await idbGet('queue',item.id);if(stored){stored.attempts=(stored.attempts||0)+1;stored.lastError=serverResult&&serverResult.error?serverResult.error:'Synchronization failed.';await idbPut('queue',stored);failed.push(stored)}}}
@@ -754,7 +621,7 @@ window.syncQueue=async function(){
     const remaining=await idbAll('queue');
     if(remaining.length){setMessage(processed+' action(s) synchronized. '+remaining.length+' remain pending.'+(failed.length?' Check the queue message if a server error is reported.':''),'warn');$('syncPill').textContent='PENDING';}
     else{await metaSet('lastSync',isoNow());setMessage(processed?'All pending field records synchronized successfully.':'No pending records needed synchronization.','ok');$('syncPill').textContent='SYNCED';}
-    $('syncPill').className='pill '+(remaining.length?'offline':'online');await refreshMeta();if(activeVisit)await renderPhotoEvidence();
+    $('syncPill').className='pill '+(remaining.length?'offline':'online');await refreshMeta();
   }catch(e){setMessage('Synchronization could not complete: '+(e.message||e),'bad');$('syncPill').textContent='SYNC ERROR';$('syncPill').className='pill offline';}
   finally{syncRunning=false;$('syncBtn').disabled=false;$('refreshBtn').disabled=false}
 };
@@ -810,7 +677,7 @@ function showActiveVisitFromStorage(v){
   updateSchoolLocationInfo();updateVisitTypeOptions();
   if(v&&v.payload&&v.payload.visitType)$('visitType').value=v.payload.visitType;
   updateVisitTypeOptions();
-  $('activeCard').classList.remove('hidden');$('visitStatus').textContent='An active visit is saved on this device for '+(v.school&&v.school.school||'the selected school')+'.';$('visitStatus').className='status warn';$('gpsBox').textContent=v.checkIn?'Check-in GPS\nLatitude: '+v.checkIn.latitude+'\nLongitude: '+v.checkIn.longitude+'\nAccuracy: '+Math.round(v.checkIn.accuracy)+' m':'Visit saved offline.';renderPhotoEvidence().catch(function(e){console.warn('Photo evidence list could not be rendered.',e)});
+  $('activeCard').classList.remove('hidden');$('visitStatus').textContent='An active visit is saved on this device for '+(v.school&&v.school.school||'the selected school')+'.';$('visitStatus').className='status warn';$('gpsBox').textContent=v.checkIn?'Check-in GPS\nLatitude: '+v.checkIn.latitude+'\nLongitude: '+v.checkIn.longitude+'\nAccuracy: '+Math.round(v.checkIn.accuracy)+' m':'Visit saved offline.';
 }
 
 window.addEventListener('online',async function(){connectionUI();setMessage('Internet restored. Preparing the secure sync connection...','ok');try{if(bridgeUrl&&!parentBridgeAvailable()){bridgeReady=false;setupBridge()}await syncQueue();if(offlineToken)await refreshOfflineData()}catch(_){} });
