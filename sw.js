@@ -1,7 +1,7 @@
 /* PEN Field Visit PWA app-shell cache. Scope is the GitHub Pages /PEN-Portal/ path. */
 'use strict';
 const CACHE_PREFIX = 'pen-field-visit-shell-';
-const CACHE_NAME = CACHE_PREFIX + '2026.6';
+const CACHE_NAME = CACHE_PREFIX + '2026.4';
 const APP_BASE = new URL('./', self.registration.scope);
 const APP_INDEX = new URL('index.html', APP_BASE).href;
 const APP_MANIFEST = new URL('gps-field-visit-manifest.webmanifest', APP_BASE).href;
