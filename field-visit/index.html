@@ -529,7 +529,14 @@ window.saveCoaching=async function(){
   if(String(activeVisit.payload&&activeVisit.payload.visitType||$('visitType').value).toUpperCase()!=="COACHING"){setMessage('The coaching form is only for a Coaching visit.','warn');return}
   $('saveCoachingBtn').disabled=true;
   const payload={visitID:activeVisit.visitID,idempotencyKey:uid('COACH'),teacherID:$('teacherID').value||'',teacherName:$('teacherName').value||'',subject:$('subject').value||'',grade:$('grade').value||'',coachingFocus:$('coachingFocus').value||'',observationSummary:$('observationSummary').value||'',strengthsObserved:$('strengthsObserved').value||'',supportNeeded:$('supportNeeded').value||'',agreedAction:$('agreedAction').value||'',nextFollowUpDate:$('nextFollowUpDate').value||'',surveyVersion:'COACHING-PRE-ME-V1',mePayload:{formType:'COACHING'},clientSubmittedAt:isoNow()};
-  try{await enqueue('COACHING',payload);activeVisit.activityReportSaved=true;activeVisit.activityReportType='COACHING';await metaSet('activeVisit',activeVisit);setMessage(online()?'Coaching record saved on this device and will synchronize now.':'Coaching record saved offline.','ok');if(online())await syncQueue()}catch(e){setMessage('Coaching record could not be saved locally: '+(e.message||e),'bad')}finally{$('saveCoachingBtn').disabled=false}
+  try{
+    await enqueue('COACHING',payload);
+    activeVisit.activityReportSaved=true;activeVisit.activityReportType='COACHING';await metaSet('activeVisit',activeVisit);
+    ['teacherID','teacherName','subject','grade','coachingFocus','observationSummary','strengthsObserved','supportNeeded','agreedAction','nextFollowUpDate'].forEach(function(id){const el=$(id);if(el)el.value=''});
+    setMessage((online()?'Coaching record saved and queued for synchronization.':'Coaching record saved offline.')+' The teacher fields are clear; you can enter the next teacher for this same school visit.','ok');
+    if(online())await syncQueue();
+  }catch(e){setMessage('Coaching record could not be saved locally: '+(e.message||e),'bad')}
+  finally{$('saveCoachingBtn').disabled=false}
 };
 
 window.saveObservation=async function(){
@@ -537,7 +544,14 @@ window.saveObservation=async function(){
   if(String(activeVisit.payload&&activeVisit.payload.visitType||$('visitType').value).toUpperCase()!=="OBSERVATION"){setMessage('The classroom observation form is only for a Classroom Observation visit.','warn');return}
   const btn=$('saveObservationBtn');btn.disabled=true;
   const payload={visitID:activeVisit.visitID,idempotencyKey:uid('OBS'),teacherID:$('obsTeacherID').value||'',teacherName:$('obsTeacherName').value||'',subject:$('obsSubject').value||'',grade:$('obsGrade').value||'',coachingFocus:'',observationSummary:$('obsLessonObjective').value||'',strengthsObserved:$('obsStrengths').value||'',supportNeeded:$('obsImprovement').value||'',agreedAction:$('obsNextSteps').value||'',nextFollowUpDate:'',surveyVersion:'CLASSROOM-OBSERVATION-PRE-ME-V1',mePayload:{formType:'CLASSROOM_OBSERVATION',lessonObjective:$('obsLessonObjective').value||'',teachingPractice:$('obsTeachingPractice').value||'',feedbackShared:$('obsFeedback').value||''},clientSubmittedAt:isoNow()};
-  try{await enqueue('COACHING',payload);activeVisit.activityReportSaved=true;activeVisit.activityReportType='OBSERVATION';await metaSet('activeVisit',activeVisit);setMessage(online()?'Classroom observation saved on this device and will synchronize now.':'Classroom observation saved offline.','ok');if(online())await syncQueue()}catch(e){setMessage('Classroom observation could not be saved locally: '+(e.message||e),'bad')}finally{btn.disabled=false}
+  try{
+    await enqueue('COACHING',payload);
+    activeVisit.activityReportSaved=true;activeVisit.activityReportType='OBSERVATION';await metaSet('activeVisit',activeVisit);
+    ['obsTeacherID','obsTeacherName','obsSubject','obsGrade','obsLessonObjective','obsTeachingPractice','obsFeedback','obsStrengths','obsImprovement','obsNextSteps'].forEach(function(id){const el=$(id);if(el)el.value=''});
+    setMessage((online()?'Classroom observation saved and queued for synchronization.':'Classroom observation saved offline.')+' The teacher fields are clear; you can enter the next teacher for this same school visit.','ok');
+    if(online())await syncQueue();
+  }catch(e){setMessage('Classroom observation could not be saved locally: '+(e.message||e),'bad')}
+  finally{btn.disabled=false}
 };
 
 function collectActivityFormData(cardId){
