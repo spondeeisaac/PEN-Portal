@@ -1,19 +1,32 @@
 {
-  "name": "PEN Field Visit App",
-  "short_name": "PEN Field Visit",
-  "description": "Offline-first PEN field visit capture with GPS verification and later synchronization.",
-  "start_url": "./?app=field-visits",
+  "id": "./",
+  "name": "PEN Cascade Portal",
+  "short_name": "PEN Portal",
+  "description": "PEN Cascade Portal for programme management, reporting, and education delivery.",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#f4f7f7",
-  "theme_color": "#009999",
+  "background_color": "#f6f8f8",
+  "theme_color": "#006b68",
   "icons": [
     {
-      "src": "./pen-field-visit-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "./apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

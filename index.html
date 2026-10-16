@@ -1,694 +1,161 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#009999">
-<link rel="manifest" href="./gps-field-visit-manifest.webmanifest">
-<title>PEN Field Visit App</title>
-<style>
-:root{--teal:#009999;--turq:#34ADAD;--yellow:#FECE2F;--orange:#FFAB40;--ink:#18383b;--muted:#667777;--bg:#f4f7f7;--card:#fff;--line:#d6e0e1;--ok:#e8f6f3;--warn:#fff5cf;--bad:#fff0e8;--danger:#9a2c2c}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Arial,sans-serif}
-body{padding-bottom:30px}
-.wrap{max-width:860px;margin:0 auto;padding:16px}
-.card{background:var(--card);border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 2px 10px rgba(0,0,0,.06)}
-h1{font-size:23px;margin:0 0 6px}h2{font-size:18px;margin:0 0 10px}
-.small{font-size:13px;color:var(--muted);line-height:1.5}.label{display:block;font-weight:700;margin:10px 0 6px;font-size:13px}
-select,input,textarea,button{width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;font:inherit}
-textarea{min-height:92px;resize:vertical}
-button{border:0;background:var(--teal);color:#fff;font-weight:700;cursor:pointer;margin-top:10px}
-button.secondary{background:#4b6265}button.warn{background:#947000}button.danger{background:var(--danger)}button:disabled{opacity:.55;cursor:not-allowed}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}@media(max-width:640px){.grid{grid-template-columns:1fr}}
-.status{padding:11px;border-radius:9px;line-height:1.45;background:var(--ok);font-size:13px}.status.warn{background:var(--warn)}.status.bad{background:var(--bad)}
-.pill{display:inline-block;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#edf1f2;margin-right:6px}.online{background:var(--ok);color:#0a6767}.offline{background:var(--warn);color:#6f5600}.syncing{background:#e6eef5;color:#32566c}
-.row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{width:auto;min-width:160px}
-.gps{font-family:monospace;white-space:pre-wrap;background:#f4f7f7;border-radius:9px;padding:12px;font-size:12px;line-height:1.55}
-.queue{padding:11px;border-radius:9px;background:var(--warn);font-size:13px}.hidden{display:none!important}
-.metric{background:#f8fafb;border:1px solid var(--line);border-radius:9px;padding:11px}.metric strong{display:block;font-size:20px;margin-top:4px}
-hr{border:0;border-top:1px solid var(--line);margin:15px 0}
-.install{display:none}
-#bridgeFrame{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;border:0;opacity:0}
-footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#006b68">
+  <meta name="description" content="PEN Cascade Portal">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <title>PEN Portal</title>
+  <style>
+    :root { color-scheme: light; --teal:#006b68; --yellow:#ffce2f; --ink:#17393b; --muted:#617477; }
+    * { box-sizing:border-box; }
+    html,body { height:100%; width:100%; margin:0; overflow:hidden; background:#f6f8f8; font-family:Arial,Helvetica,sans-serif; color:var(--ink); }
+    #portalFrame { position:fixed; inset:0; display:block; width:100%; height:100%; border:0; background:#fff; }
+    #loading { position:fixed; inset:0; z-index:5; display:flex; align-items:center; justify-content:center; padding:24px; background:#f6f8f8; }
+    #loading .card { max-width:520px; width:100%; text-align:center; padding:28px; border:1px solid #d8e4e3; border-top:4px solid var(--yellow); border-radius:12px; background:#fff; box-shadow:0 5px 24px #17393b12; }
+    #loading h1 { margin:0 0 10px; color:var(--teal); font-size:22px; }
+    #loading p { margin:0; color:var(--muted); line-height:1.55; font-size:14px; }
+    #offline { position:fixed; inset:0; z-index:10; display:none; align-items:center; justify-content:center; padding:24px; background:#f6f8f8; }
+    #offline .card { max-width:560px; width:100%; padding:28px; background:#fff; border:1px solid #d8e4e3; border-left:5px solid var(--yellow); border-radius:12px; }
+    #offline h2 { margin:0 0 10px; color:var(--teal); font-size:21px; }
+    #offline p { color:var(--muted); line-height:1.55; font-size:14px; }
+    .btn { display:inline-block; border:0; border-radius:8px; padding:12px 16px; background:var(--teal); color:#fff; text-decoration:none; font-weight:700; margin:5px 6px 0 0; }
+    .secondary { background:#4b6265; }
+    @media (prefers-reduced-motion:no-preference) { .dot { display:inline-block; animation:pulse 1.25s ease-in-out infinite; } @keyframes pulse { 50% { opacity:.3; } } }
+  </style>
+  <script>
+    // Legacy field-visit shortcuts used the repository root with ?app=field-visits.
+    // Preserve those links but send them to the dedicated offline app subdirectory.
+    (function () {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('app') === 'field-visits') {
+          var target = new URL('field-visit/', window.location.href);
+          target.search = window.location.search;
+          target.hash = window.location.hash;
+          window.location.replace(target.href);
+          return;
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
-<div id="pwaApp" class="wrap">
-  <div class="card">
-    <div class="row">
-      <div>
-        <h1>PEN Field Visit App</h1>
-        <div class="small">Offline-first field visit verification for Master Trainers and Field Support Officers.</div>
-      </div>
-      <div>
-        <span id="connectionPill" class="pill">Checking connection...</span>
-        <span id="syncPill" class="pill">Not synced</span>
-      </div>
-    </div>
-    <div id="appMessage" class="status" style="margin-top:10px">Starting secure field access...</div>
-    <div id="accessMetrics" class="grid" style="margin-top:10px">
-      <div class="metric"><div class="small">Pending local actions</div><strong id="pendingCount">0</strong></div>
-      <div class="metric"><div class="small">Schools cached</div><strong id="schoolCount">0</strong></div>
-      <div class="metric"><div class="small">Last sync</div><strong id="lastSync">Never</strong></div>
-      <div class="metric"><div class="small">Access expires</div><strong id="expiry">—</strong></div>
-    </div>
-    <div class="actions" style="margin-top:8px">
-      <button id="refreshBtn" class="secondary" onclick="refreshOfflineData()">Refresh Offline Data</button>
-      <button id="syncBtn" onclick="syncQueue()">Sync Pending Records</button>
-      <button id="installBtn" class="secondary install" onclick="installApp()">Install App</button>
-    </div>
-  </div>
+  <iframe id="portalFrame" title="PEN Cascade Portal" allow="clipboard-read; clipboard-write; geolocation" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+  <div id="loading"><div class="card"><h1>PEN Cascade Portal</h1><p>Opening your secure portal <span class="dot">…</span></p></div></div>
+  <div id="offline"><div class="card"><h2>The main portal needs an internet connection</h2><p>Your offline-first Field Visit App remains available for prepared school visits, local records, and later synchronization.</p><a class="btn" href="./field-visit/?app=field-visits">Open Field Visit App</a><a class="btn secondary" href="https://script.google.com/macros/s/AKfycbz4OAIXJVtUWOPUjIXz6WV4DWYLWepJsQMCshp5IKEa4efBcrtrisoXgmRqeLYfIyDicA/exec" target="_blank" rel="noopener">Open main portal directly</a></div></div>
+  <script>
+  (function () {
+    'use strict';
+    var PORTAL_URL = "https://script.google.com/macros/s/AKfycbz4OAIXJVtUWOPUjIXz6WV4DWYLWepJsQMCshp5IKEa4efBcrtrisoXgmRqeLYfIyDicA/exec";
+    var TRUSTED_ORIGINS = {'https://script.google.com':true,'https://script.googleusercontent.com':true};
+    var frame = document.getElementById('portalFrame');
+    var loading = document.getElementById('loading');
+    var offline = document.getElementById('offline');
+    var mode = 'unknown';
+    var fallbackTimer = null;
 
-  <div id="setupCard" class="card hidden">
-    <h2>Offline Access Not Ready</h2>
-    <div class="status warn">Open this Field Visit App from the PEN Portal while you are online. The system must securely download your assigned schools and prepare your device before you go into an area without internet.</div>
-  </div>
-
-  <div id="visitCard" class="card hidden">
-    <h2>1. Start Field Visit</h2>
-    <label class="label" for="school">Assigned School</label>
-    <select id="school"><option value="">Loading schools...</option></select>
-    <label class="label" for="visitType">Visit Type</label>
-    <select id="visitType">
-      <option value="FOLLOW_UP">Follow-up</option>
-      <option value="COACHING">Coaching</option>
-      <option value="OBSERVATION">Classroom Observation</option>
-      <option value="MONITORING">Monitoring / Support Visit</option>
-      <option value="ME_VISIT">M&E Visit (form pending)</option>
-    </select>
-    <div id="schoolLocationInfo" class="status" style="margin-top:10px">Select a school to see location readiness.</div>
-    <div id="locationCaptureWrap" class="actions hidden">
-      <button class="secondary" onclick="captureSchoolLocation()">Capture School Location</button>
-    </div>
-    <button id="startBtn" onclick="startVisit()">Start Visit &amp; Capture GPS</button>
-  </div>
-
-  <div id="activeCard" class="card hidden">
-    <h2>2. Active Visit</h2>
-    <div id="visitStatus" class="status"></div>
-    <div id="gpsBox" class="gps">Waiting for GPS...</div>
-    <label class="label" for="notes">Visit Notes</label>
-    <textarea id="notes" placeholder="Optional visit notes..."></textarea>
-    <button id="checkoutBtn" onclick="checkOutVisit()">Check Out &amp; Verify Visit</button>
-  </div>
-
-  <div id="coachingCard" class="card hidden">
-    <h2>3. Coaching / Observation Record</h2>
-    <label class="label" for="teacherID">Teacher ID</label><input id="teacherID" placeholder="Optional">
-    <label class="label" for="teacherName">Teacher Name</label><input id="teacherName" placeholder="Teacher name">
-    <label class="label" for="subject">Subject</label><input id="subject" placeholder="Subject">
-    <label class="label" for="grade">Grade / Level</label><input id="grade" placeholder="Grade / Level">
-    <label class="label" for="coachingFocus">Coaching Focus</label><textarea id="coachingFocus"></textarea>
-    <label class="label" for="observationSummary">Observation Summary</label><textarea id="observationSummary"></textarea>
-    <label class="label" for="strengthsObserved">Strengths Observed</label><textarea id="strengthsObserved"></textarea>
-    <label class="label" for="supportNeeded">Support Needed</label><textarea id="supportNeeded"></textarea>
-    <label class="label" for="agreedAction">Agreed Action</label><textarea id="agreedAction"></textarea>
-    <label class="label" for="nextFollowUpDate">Next Follow-up Date</label><input id="nextFollowUpDate" type="date">
-    <button id="saveCoachingBtn" onclick="saveCoaching()">Save Coaching Record</button>
-  </div>
-
-  <div id="observationCard" class="card hidden">
-    <h2>Classroom Observation Form</h2>
-    <p class="small">Use this form only for a classroom observation. The official M&E instrument can replace or extend these pre-M&E fields when provided.</p>
-    <label class="label" for="obsTeacherID">Teacher ID</label><input id="obsTeacherID" placeholder="Teacher ID, if available">
-    <label class="label" for="obsTeacherName">Teacher Name</label><input id="obsTeacherName" placeholder="Teacher observed">
-    <label class="label" for="obsSubject">Subject</label><input id="obsSubject" placeholder="Subject">
-    <label class="label" for="obsGrade">Grade / Level</label><input id="obsGrade" placeholder="Grade / level">
-    <label class="label" for="obsLessonObjective">Lesson objective</label><textarea id="obsLessonObjective"></textarea>
-    <label class="label" for="obsTeachingPractice">Teaching and learner engagement observed</label><textarea id="obsTeachingPractice"></textarea>
-    <label class="label" for="obsStrengths">Strengths observed</label><textarea id="obsStrengths"></textarea>
-    <label class="label" for="obsImprovement">Areas for improvement</label><textarea id="obsImprovement"></textarea>
-    <label class="label" for="obsFeedback">Feedback shared with teacher</label><textarea id="obsFeedback"></textarea>
-    <label class="label" for="obsNextSteps">Agreed next steps</label><textarea id="obsNextSteps"></textarea>
-    <button id="saveObservationBtn" onclick="saveObservation()">Save Classroom Observation</button>
-  </div>
-
-  <div id="followUpCard" class="card hidden">
-    <h2>Follow-up Visit Form</h2>
-    <p class="small">Record what has changed since the previous visit and the next agreed steps.</p>
-    <label class="label" for="followUp_purpose">Purpose of follow-up</label><textarea id="followUp_purpose" data-report-key="purpose" data-report-label="Purpose of follow-up" placeholder="What is this visit following up on?"></textarea>
-    <label class="label" for="followUp_progress">Progress since the last visit</label><textarea id="followUp_progress" data-report-key="progress" data-report-label="Progress since the last visit" placeholder="What has changed or been completed?"></textarea>
-    <div class="grid"><div><label class="label" for="followUp_teachers">Teachers reached</label><input id="followUp_teachers" data-report-key="teachersReached" data-report-label="Teachers reached" type="number" min="0" step="1" value="0"></div><div><label class="label" for="followUp_learners">Learners reached</label><input id="followUp_learners" data-report-key="learnersReached" data-report-label="Learners reached" type="number" min="0" step="1" value="0"></div></div>
-    <label class="label" for="followUp_challenges">Challenges or support needed</label><textarea id="followUp_challenges" data-report-key="challenges" data-report-label="Challenges or support needed"></textarea>
-    <label class="label" for="followUp_action">Next action agreed</label><textarea id="followUp_action" data-report-key="nextAction" data-report-label="Next action agreed"></textarea>
-    <label class="label" for="followUp_dueDate">Follow-up due date</label><input id="followUp_dueDate" data-report-key="dueDate" data-report-label="Follow-up due date" type="date">
-    <button id="saveFollowUpBtn" onclick="saveActivityReport('FOLLOW_UP')">Save Follow-up Report</button>
-  </div>
-
-  <div id="monitoringCard" class="card hidden">
-    <h2>Monitoring / Support Visit Form</h2>
-    <p class="small">Capture implementation status, resources, reach and issues that require support.</p>
-    <label class="label" for="monitor_focus">Monitoring focus</label><input id="monitor_focus" data-report-key="monitoringFocus" data-report-label="Monitoring focus" placeholder="What are you monitoring?">
-    <label class="label" for="monitor_findings">Key findings and observations</label><textarea id="monitor_findings" data-report-key="findings" data-report-label="Key findings and observations"></textarea>
-    <div class="grid"><div><label class="label" for="monitor_teachers">Teachers reached</label><input id="monitor_teachers" data-report-key="teachersReached" data-report-label="Teachers reached" type="number" min="0" step="1" value="0"></div><div><label class="label" for="monitor_learners">Learners reached</label><input id="monitor_learners" data-report-key="learnersReached" data-report-label="Learners reached" type="number" min="0" step="1" value="0"></div></div>
-    <label class="label" for="monitor_materials">Materials / implementation status</label><textarea id="monitor_materials" data-report-key="materialsStatus" data-report-label="Materials / implementation status"></textarea>
-    <label class="label" for="monitor_issues">Issues identified</label><textarea id="monitor_issues" data-report-key="issues" data-report-label="Issues identified"></textarea>
-    <label class="label" for="monitor_escalation">Escalation required?</label><select id="monitor_escalation" data-report-key="escalationRequired" data-report-label="Escalation required"><option value="NO">No</option><option value="YES">Yes</option><option value="URGENT">Urgent</option></select>
-    <label class="label" for="monitor_action">Follow-up action / person responsible</label><textarea id="monitor_action" data-report-key="followUpAction" data-report-label="Follow-up action / person responsible"></textarea>
-    <label class="label" for="monitor_dueDate">Follow-up due date</label><input id="monitor_dueDate" data-report-key="followUpDate" data-report-label="Follow-up due date" type="date">
-    <button id="saveMonitoringBtn" onclick="saveActivityReport('MONITORING')">Save Monitoring Report</button>
-  </div>
-
-  <div id="fsoCascadeMonitoringCard" class="card hidden">
-    <h2>FSO Cascade School Monitoring Form</h2>
-    <p class="small">Use this form for FSO monitoring of cascade implementation at a school.</p>
-    <label class="label" for="fsoCascade_findings">What activity or session was monitored?</label><textarea id="fsoCascade_findings" data-report-key="monitoringObservations" data-report-label="Activity or session monitored"></textarea>
-    <div class="grid"><div><label class="label" for="fsoCascade_teachers">Teachers present / reached</label><input id="fsoCascade_teachers" data-report-key="teachersReached" data-report-label="Teachers present / reached" type="number" min="0" step="1" value="0"></div><div><label class="label" for="fsoCascade_learners">Learners reached (if applicable)</label><input id="fsoCascade_learners" data-report-key="learnersReached" data-report-label="Learners reached" type="number" min="0" step="1" value="0"></div></div>
-    <label class="label" for="fsoCascade_implementation">Implementation / teaching practice observed</label><textarea id="fsoCascade_implementation" data-report-key="implementationObserved" data-report-label="Implementation / teaching practice observed"></textarea>
-    <label class="label" for="fsoCascade_materials">PEN materials and resources status</label><textarea id="fsoCascade_materials" data-report-key="materialsStatus" data-report-label="PEN materials and resources status"></textarea>
-    <label class="label" for="fsoCascade_issues">Issues or risks identified</label><textarea id="fsoCascade_issues" data-report-key="issues" data-report-label="Issues or risks identified"></textarea>
-    <label class="label" for="fsoCascade_escalation">Escalation required?</label><select id="fsoCascade_escalation" data-report-key="escalationRequired" data-report-label="Escalation required"><option value="NO">No</option><option value="YES">Yes</option><option value="URGENT">Urgent</option></select>
-    <label class="label" for="fsoCascade_action">Action needed / person responsible</label><textarea id="fsoCascade_action" data-report-key="followUpAction" data-report-label="Action needed / person responsible"></textarea>
-    <label class="label" for="fsoCascade_dueDate">Follow-up due date</label><input id="fsoCascade_dueDate" data-report-key="followUpDate" data-report-label="Follow-up due date" type="date">
-    <button id="saveFsoCascadeBtn" onclick="saveActivityReport('FSO_CASCADE_MONITORING')">Save Cascade Monitoring Report</button>
-  </div>
-
-  <div id="logisticsSupportCard" class="card hidden">
-    <h2>Logistics Support Form</h2>
-    <p class="small">Record a logistics request, support provided, or delivery verification.</p>
-    <label class="label" for="logistics_activity">Logistics activity</label><select id="logistics_activity" data-report-key="logisticsActivity" data-report-label="Logistics activity"><option value="SUPPORT_REQUESTED">Support requested</option><option value="SUPPORT_PROVIDED">Support provided</option><option value="DELIVERY_VERIFICATION">Delivery / receipt verification</option></select>
-    <label class="label" for="logistics_items">Item(s) or support needed/provided</label><textarea id="logistics_items" data-report-key="items" data-report-label="Item(s) or support needed/provided"></textarea>
-    <div class="grid"><div><label class="label" for="logistics_quantity">Quantity (if applicable)</label><input id="logistics_quantity" data-report-key="quantity" data-report-label="Quantity" type="number" min="0" step="1" value="0"></div><div><label class="label" for="logistics_status">Current status</label><select id="logistics_status" data-report-key="status" data-report-label="Current status"><option value="PENDING">Pending</option><option value="IN_PROGRESS">In progress</option><option value="COMPLETED">Completed</option><option value="NOT_AVAILABLE">Not available</option></select></div></div>
-    <label class="label" for="logistics_description">Context / delivery details</label><textarea id="logistics_description" data-report-key="details" data-report-label="Context / delivery details"></textarea>
-    <label class="label" for="logistics_issues">Constraints or issues</label><textarea id="logistics_issues" data-report-key="issues" data-report-label="Constraints or issues"></textarea>
-    <label class="label" for="logistics_escalation">Escalation required?</label><select id="logistics_escalation" data-report-key="escalationRequired" data-report-label="Escalation required"><option value="NO">No</option><option value="YES">Yes</option><option value="URGENT">Urgent</option></select>
-    <label class="label" for="logistics_action">Next action / person responsible</label><textarea id="logistics_action" data-report-key="followUpAction" data-report-label="Next action / person responsible"></textarea>
-    <label class="label" for="logistics_dueDate">Due date</label><input id="logistics_dueDate" data-report-key="followUpDate" data-report-label="Due date" type="date">
-    <button id="saveLogisticsBtn" onclick="saveActivityReport('LOGISTICS_SUPPORT')">Save Logistics Report</button>
-  </div>
-
-  <div id="issueEscalationCard" class="card hidden">
-    <h2>Issue / Escalation Form</h2>
-    <p class="small">Record an issue clearly and identify its urgency and owner.</p>
-    <label class="label" for="issue_category">Issue category</label><select id="issue_category" data-report-key="category" data-report-label="Issue category"><option value="IMPLEMENTATION">Implementation</option><option value="LOGISTICS">Logistics</option><option value="STAFFING">Staffing</option><option value="SAFETY">Safety</option><option value="ACCESS">Access / location</option><option value="OTHER">Other</option></select>
-    <label class="label" for="issue_severity">Severity</label><select id="issue_severity" data-report-key="severity" data-report-label="Severity"><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="URGENT">Urgent</option></select>
-    <label class="label" for="issue_details">Issue description and evidence</label><textarea id="issue_details" data-report-key="issueDetails" data-report-label="Issue description and evidence"></textarea>
-    <label class="label" for="issue_immediateAction">Immediate action taken / required</label><textarea id="issue_immediateAction" data-report-key="immediateAction" data-report-label="Immediate action taken / required"></textarea>
-    <label class="label" for="issue_responsible">Person or team responsible</label><input id="issue_responsible" data-report-key="responsible" data-report-label="Person or team responsible">
-    <label class="label" for="issue_dueDate">Required resolution date</label><input id="issue_dueDate" data-report-key="dueDate" data-report-label="Required resolution date" type="date">
-    <button id="saveIssueBtn" onclick="saveActivityReport('ISSUE_ESCALATION')">Save Issue / Escalation</button>
-  </div>
-
-  <div id="learningLabActivityCard" class="card hidden">
-    <h2>Learning Lab Activity Form</h2>
-    <p class="small">Record the Learning Lab activity completed and who it reached.</p>
-    <label class="label" for="labAct_activity">Activity conducted</label><input id="labAct_activity" data-report-key="activity" data-report-label="Activity conducted">
-    <label class="label" for="labAct_summary">Activity summary and outcome</label><textarea id="labAct_summary" data-report-key="summary" data-report-label="Activity summary and outcome"></textarea>
-    <div class="grid"><div><label class="label" for="labAct_teachers">Teachers / facilitators reached</label><input id="labAct_teachers" data-report-key="teachersReached" data-report-label="Teachers / facilitators reached" type="number" min="0" step="1" value="0"></div><div><label class="label" for="labAct_learners">Learners reached</label><input id="labAct_learners" data-report-key="learnersReached" data-report-label="Learners reached" type="number" min="0" step="1" value="0"></div></div>
-    <label class="label" for="labAct_materials">Materials and equipment used / available</label><textarea id="labAct_materials" data-report-key="materialsStatus" data-report-label="Materials and equipment used / available"></textarea>
-    <label class="label" for="labAct_issues">Challenges or issues</label><textarea id="labAct_issues" data-report-key="issues" data-report-label="Challenges or issues"></textarea>
-    <label class="label" for="labAct_escalation">Escalation required?</label><select id="labAct_escalation" data-report-key="escalationRequired" data-report-label="Escalation required"><option value="NO">No</option><option value="YES">Yes</option><option value="URGENT">Urgent</option></select>
-    <label class="label" for="labAct_action">Next action / person responsible</label><textarea id="labAct_action" data-report-key="followUpAction" data-report-label="Next action / person responsible"></textarea>
-    <label class="label" for="labAct_dueDate">Follow-up due date</label><input id="labAct_dueDate" data-report-key="followUpDate" data-report-label="Follow-up due date" type="date">
-    <button id="saveLabActivityBtn" onclick="saveActivityReport('LEARNING_LAB_ACTIVITY')">Save Learning Lab Activity</button>
-  </div>
-
-  <div id="learningLabReadinessCard" class="card hidden">
-    <h2>Learning Lab Readiness Check</h2>
-    <p class="small">Record basic readiness checks. These are temporary operational checks, not the pending M&amp;E instrument.</p>
-    <div class="grid"><div><label class="label" for="labReady_workspace">Workspace ready?</label><select id="labReady_workspace" data-report-key="workspaceReady" data-report-label="Workspace ready"><option value="READY">Ready</option><option value="PARTLY_READY">Partly ready</option><option value="NOT_READY">Not ready</option></select></div><div><label class="label" for="labReady_materials">Materials available?</label><select id="labReady_materials" data-report-key="materialsAvailable" data-report-label="Materials available"><option value="AVAILABLE">Available</option><option value="PARTLY_AVAILABLE">Partly available</option><option value="NOT_AVAILABLE">Not available</option></select></div></div>
-    <div class="grid"><div><label class="label" for="labReady_facilitator">Facilitator available?</label><select id="labReady_facilitator" data-report-key="facilitatorAvailable" data-report-label="Facilitator available"><option value="YES">Yes</option><option value="NO">No</option></select></div><div><label class="label" for="labReady_safety">Safety / accessibility concerns?</label><select id="labReady_safety" data-report-key="safetyConcerns" data-report-label="Safety / accessibility concerns"><option value="NO">No</option><option value="YES">Yes</option></select></div></div>
-    <label class="label" for="labReady_gaps">Readiness gaps / evidence</label><textarea id="labReady_gaps" data-report-key="readinessGaps" data-report-label="Readiness gaps / evidence"></textarea>
-    <label class="label" for="labReady_action">Actions required to achieve readiness</label><textarea id="labReady_action" data-report-key="followUpAction" data-report-label="Actions required to achieve readiness"></textarea>
-    <label class="label" for="labReady_dueDate">Action due date</label><input id="labReady_dueDate" data-report-key="followUpDate" data-report-label="Action due date" type="date">
-    <button id="saveLabReadinessBtn" onclick="saveActivityReport('LEARNING_LAB_READINESS')">Save Readiness Check</button>
-  </div>
-
-  <div id="learningLabFollowUpCard" class="card hidden">
-    <h2>Learning Lab Follow-up Form</h2>
-    <p class="small">Review agreed actions from the previous Learning Lab visit.</p>
-    <label class="label" for="labFollow_previous">Previous action(s) reviewed</label><textarea id="labFollow_previous" data-report-key="previousActions" data-report-label="Previous actions reviewed"></textarea>
-    <label class="label" for="labFollow_status">Progress status</label><select id="labFollow_status" data-report-key="progressStatus" data-report-label="Progress status"><option value="COMPLETED">Completed</option><option value="PARTLY_COMPLETED">Partly completed</option><option value="NOT_STARTED">Not started</option><option value="BLOCKED">Blocked</option></select>
-    <label class="label" for="labFollow_progress">Evidence of progress / changes since last visit</label><textarea id="labFollow_progress" data-report-key="progressEvidence" data-report-label="Evidence of progress"></textarea>
-    <label class="label" for="labFollow_issues">Remaining challenges</label><textarea id="labFollow_issues" data-report-key="remainingChallenges" data-report-label="Remaining challenges"></textarea>
-    <label class="label" for="labFollow_escalation">Escalation required?</label><select id="labFollow_escalation" data-report-key="escalationRequired" data-report-label="Escalation required"><option value="NO">No</option><option value="YES">Yes</option><option value="URGENT">Urgent</option></select>
-    <label class="label" for="labFollow_action">Next action / person responsible</label><textarea id="labFollow_action" data-report-key="followUpAction" data-report-label="Next action / person responsible"></textarea>
-    <label class="label" for="labFollow_dueDate">Next follow-up due date</label><input id="labFollow_dueDate" data-report-key="followUpDate" data-report-label="Next follow-up due date" type="date">
-    <button id="saveLabFollowUpBtn" onclick="saveActivityReport('LEARNING_LAB_FOLLOW_UP')">Save Learning Lab Follow-up</button>
-  </div>
-
-  <div id="fsoLearningLabMonitoringCard" class="card hidden">
-    <h2>FSO Learning Lab Monitoring Form</h2>
-    <p class="small">Record delivery, participation, resources and operational follow-up at the Learning Lab.</p>
-    <div class="grid"><div><label class="label" for="llm_sessions">Sessions / activities monitored</label><input id="llm_sessions" data-report-key="sessionsMonitored" data-report-label="Sessions / activities monitored" type="number" min="0" step="1" value="0"></div><div><label class="label" for="llm_learners">Learners reached / observed</label><input id="llm_learners" data-report-key="learnersReached" data-report-label="Learners reached / observed" type="number" min="0" step="1" value="0"></div></div>
-    <label class="label" for="llm_facilitator">Facilitator / responsible person present?</label><select id="llm_facilitator" data-report-key="facilitatorPresent" data-report-label="Facilitator present"><option value="YES">Yes</option><option value="NO">No</option></select>
-    <label class="label" for="llm_observations">Monitoring observations</label><textarea id="llm_observations" data-report-key="observations" data-report-label="Monitoring observations"></textarea>
-    <label class="label" for="llm_materials">Materials / equipment status</label><textarea id="llm_materials" data-report-key="materialsStatus" data-report-label="Materials / equipment status"></textarea>
-    <label class="label" for="llm_issues">Issues or risks identified</label><textarea id="llm_issues" data-report-key="issues" data-report-label="Issues or risks identified"></textarea>
-    <label class="label" for="llm_escalation">Escalation required?</label><select id="llm_escalation" data-report-key="escalationRequired" data-report-label="Escalation required"><option value="NO">No</option><option value="YES">Yes</option><option value="URGENT">Urgent</option></select>
-    <label class="label" for="llm_action">Action needed / person responsible</label><textarea id="llm_action" data-report-key="followUpAction" data-report-label="Action needed / person responsible"></textarea>
-    <label class="label" for="llm_dueDate">Follow-up due date</label><input id="llm_dueDate" data-report-key="followUpDate" data-report-label="Follow-up due date" type="date">
-    <button id="saveLearningLabMonitoringBtn" onclick="saveActivityReport('FSO_LEARNING_LAB_MONITORING')">Save Learning Lab Monitoring Report</button>
-  </div>
-
-  <div id="mePendingCard" class="card hidden">
-    <h2>M&amp;E Visit — Form Pending</h2>
-    <div class="status warn">The M&amp;E team has not yet supplied the approved survey questions. This is intentionally not a submission form. You may capture GPS check-in/check-out evidence for the visit, but do not record or submit an M&amp;E questionnaire until the official fields are provided.</div>
-  </div>
-
-  <div class="card">
-    <h2>Offline Queue</h2>
-    <div id="queueInfo" class="queue">No pending offline records.</div>
-    <div class="small" style="margin-top:8px">Records remain on this device until the PEN server confirms successful synchronization. Closing the browser does not delete the queue.</div>
-    <button class="secondary" onclick="syncQueue()">Sync Now</button>
-  </div>
-
-  <footer>PEN Field Visit Offline App • Application version 2026.4</footer>
-</div>
-
-<iframe id="bridgeFrame" title="PEN secure field bridge" aria-hidden="true"></iframe>
-
-<script>
-(function(){
-'use strict';
-const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.4';
-const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026';
-const DB_VERSION=1;
-const BRIDGE_SOURCE='PEN_FIELD_VISIT_PWA_2026';
-const DEFAULT_BRIDGE_URL='';
-const p=new URLSearchParams(location.search);
-const portalOrigin=p.get('portalOrigin')||'';
-const portalHandoff=p.get('handoff')||'';
-let bridgeUrl=p.get('bridge')||DEFAULT_BRIDGE_URL;
-let offlineToken=p.get('offlineToken')||'';
-let normalToken=p.get('token')||'';
-let schools=[];
-let activeVisit=null;
-let actorRole="";
-let deferredInstallPrompt=null;
-let dbPromise=null;
-let bridgeReady=false;
-const bridgePending={};
-let syncRunning=false;
-
-function $(id){return document.getElementById(id)}
-function uid(prefix){
-  const r=(crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now())+'-'+Math.random().toString(36).slice(2,12);
-  return String(prefix||'EV')+'-'+r;
-}
-function setMessage(text,type){const e=$('appMessage');e.textContent=text;e.className='status '+(type||'')}
-function online(){return navigator.onLine!==false}
-function safeDate(v){const d=v?new Date(v):null;return d&&!isNaN(d.getTime())?d:null}
-function isoNow(){return new Date().toISOString()}
-function fmt(v){const d=safeDate(v);return d?d.toLocaleString():String(v||'—')}
-
-function idbOpen(){
-  if(dbPromise)return dbPromise;
-  dbPromise=new Promise(function(resolve,reject){
-    const req=indexedDB.open(DB_NAME,DB_VERSION);
-    req.onupgradeneeded=function(){
-      const db=req.result;
-      if(!db.objectStoreNames.contains('meta'))db.createObjectStore('meta',{keyPath:'key'});
-      if(!db.objectStoreNames.contains('schools'))db.createObjectStore('schools',{keyPath:'schoolKey'});
-      if(!db.objectStoreNames.contains('queue'))db.createObjectStore('queue',{keyPath:'id'});
-    };
-    req.onsuccess=function(){resolve(req.result)};req.onerror=function(){reject(req.error||new Error('Unable to open offline storage.'))};
-  });
-  return dbPromise;
-}
-async function idbGet(store,key){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(store,'readonly'),req=tx.objectStore(store).get(key);req.onsuccess=()=>res(req.result||null);req.onerror=()=>rej(req.error)})}
-async function idbPut(store,val){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(val);tx.oncomplete=()=>res(true);tx.onerror=()=>rej(tx.error||new Error('Storage write failed.'))})}
-async function idbDelete(store,key){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(key);tx.oncomplete=()=>res(true);tx.onerror=()=>rej(tx.error)})}
-async function idbAll(store){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(store,'readonly'),req=tx.objectStore(store).getAll();req.onsuccess=()=>res(req.result||[]);req.onerror=()=>rej(req.error)})}
-async function metaGet(key){const r=await idbGet('meta',key);return r?r.value:null}
-async function metaSet(key,value){return idbPut('meta',{key:key,value:value,updatedAt:isoNow()})}
-
-function setupBridge(){
-  if(!bridgeUrl)return;
-  const frame=$('bridgeFrame');
-  const url=bridgeUrl+(bridgeUrl.indexOf('?')>=0?'&':'?')+'view=field-visit-bridge&origin='+encodeURIComponent(location.origin)+'&_fvRetry='+Date.now();
-  frame.src=url;
-}
-function parentBridgeAvailable(){return !!(portalOrigin&&portalHandoff&&window.opener&&!window.opener.closed)}
-window.addEventListener('message',function(event){
-  const d=event.data||{};
-  if(d.source===BRIDGE_SOURCE&&event.source===$('bridgeFrame').contentWindow){
-    if(d.type==='READY'){bridgeReady=true;return}
-    if(d.type==='RESPONSE'){
-      const cb=bridgePending[d.requestId];if(!cb)return;
-      delete bridgePending[d.requestId];
-      d.success?cb.resolve(d.result):cb.reject(new Error(d.error||'Server request failed.'));
+    function safeGet(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
+    function safeSet(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+    function safeRemove(key) { try { localStorage.removeItem(key); } catch (e) {} }
+    function cleanQuery() {
+      try {
+        if (window.history && history.replaceState) history.replaceState(null, '', window.location.pathname + window.location.hash);
+      } catch (e) {}
     }
-    return;
-  }
-  if(!parentBridgeAvailable()||event.source!==window.opener||event.origin!==portalOrigin)return;
-  if(d.source!=='PEN_FIELD_VISIT_PORTAL_2026'||d.handoff!==portalHandoff||d.type!=='RESPONSE')return;
-  const cb=bridgePending[d.requestId];if(!cb)return;
-  delete bridgePending[d.requestId];
-  d.success?cb.resolve(d.result):cb.reject(new Error(d.error||'PEN Portal request failed.'));
-});
-function waitBridge(){return new Promise(function(resolve,reject){let n=0;const t=setInterval(function(){if(bridgeReady){clearInterval(t);resolve()}else if(++n>100){clearInterval(t);reject(new Error('Secure PEN server bridge did not start.'))}},100)})}
-async function bridgeCall(action,args){
-  if(!online())throw new Error('Internet connection is unavailable.');
-  const requestId=uid('REQ');
-  return new Promise(async function(resolve,reject){
-    bridgePending[requestId]={resolve:resolve,reject:reject};
-    const finishTimeout=setTimeout(function(){if(bridgePending[requestId]){delete bridgePending[requestId];reject(new Error('The PEN server request timed out.'))}},45000);
-    try{
-      if(parentBridgeAvailable()){
-        window.opener.postMessage({source:BRIDGE_SOURCE,type:'REQUEST',handoff:portalHandoff,requestId:requestId,action:String(action||''),args:Array.isArray(args)?args:[]},portalOrigin);
+    function urlFor(view, token) {
+      var u = new URL(PORTAL_URL);
+      u.searchParams.set('view', view);
+      u.searchParams.set('_pwa', '1');
+      if (view === 'login') u.searchParams.set('embedded', '1');
+      if (token) u.searchParams.set('token', token);
+      u.searchParams.set('t', String(Date.now()));
+      return u.href;
+    }
+    function showOffline() {
+      var isOnline = navigator.onLine !== false;
+      offline.style.display = isOnline ? 'none' : 'flex';
+      if (!isOnline) { frame.style.visibility = 'hidden'; loading.style.display = 'none'; }
+      else { frame.style.visibility = 'visible'; }
+    }
+    function loadLogin() {
+      mode = 'login';
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      loading.style.display = 'flex';
+      frame.style.visibility = 'visible';
+      frame.src = urlFor('login', '');
+    }
+    function loadDashboard(token) {
+      if (!token) return loadLogin();
+      mode = 'dashboard';
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      loading.style.display = 'flex';
+      frame.style.visibility = 'visible';
+      frame.src = urlFor('dashboard', token);
+    }
+
+    // The Apps Script login page returns its token to this shell in embedded mode.
+    window.addEventListener('message', function (event) {
+      if (event.source !== frame.contentWindow) return;
+      if (!TRUSTED_ORIGINS[event.origin]) return;
+      var data = event.data || {};
+      if (data.source === 'PEN_LOGIN_2026' && data.type === 'PEN_LOGIN_SUCCESS' && data.token) {
+        safeSet('PEN_SESSION_TOKEN', String(data.token));
+        if (data.account) safeSet('PEN_ACCOUNT', JSON.stringify(data.account));
+        mode = 'dashboard';
         return;
       }
-      if(!bridgeUrl)throw new Error('The PEN server bridge is not configured. Open the Field Visit App from the PEN Portal while online.');
-      await waitBridge();
-      if(!bridgePending[requestId])return;
-      $('bridgeFrame').contentWindow.postMessage({source:BRIDGE_SOURCE,type:'REQUEST',requestId:requestId,action:String(action||''),args:Array.isArray(args)?args:[]},'*');
-    }catch(e){clearTimeout(finishTimeout);if(bridgePending[requestId]){delete bridgePending[requestId];reject(e)}}
-  });
-}
-
-async function saveBundle(bundle){
-  if(!bundle)return;
-  schools=Array.isArray(bundle.schools)?bundle.schools:[];
-  actorRole=String(bundle.actor&&bundle.actor.role||actorRole||"").toUpperCase();
-  const existing=await idbAll('schools');
-  const newKeys={};schools.forEach(s=>newKeys[String(s.schoolKey)]=true);
-  for(const s of existing){if(!newKeys[s.schoolKey])await idbDelete('schools',s.schoolKey)}
-  for(const s of schools)await idbPut('schools',s);
-  if(bundle.offlineToken){offlineToken=bundle.offlineToken;await metaSet('offlineToken',offlineToken)}
-  await metaSet('offlineExpiresAt',bundle.expiresAt||'');
-  await metaSet('actor',bundle.actor||{});
-  await metaSet('appVersion',bundle.appVersion||APP_VERSION);
-  await metaSet('lastSync',bundle.serverTime||isoNow());
-  updateExpiry(bundle.expiresAt);
-  await loadSchoolsFromDB();
-}
-async function loadSchoolsFromDB(){schools=await idbAll('schools');schools.sort((a,b)=>(String(a.county)+'|'+String(a.district)+'|'+String(a.school)).localeCompare(String(b.county)+'|'+String(b.district)+'|'+String(b.school)));$('schoolCount').textContent=String(schools.length);const savedActor=await metaGet('actor');if(savedActor&&savedActor.role)actorRole=String(savedActor.role).toUpperCase();renderSchoolOptions()}
-function selectedSchool(){const v=$('school').value;return schools.find(s=>String(s.schoolKey)===String(v))||null}
-function updateVisitTypeOptions(){
-  const sel=$("visitType"),school=selectedSchool();if(!sel)return;
-  const current=sel.value;let opts=[];const role=String(actorRole||"").toUpperCase();
-  const isLab=!!school&&String(school.recordType||"").toUpperCase()==="LEARNING_LAB";
-  if(isLab){
-    if(role==="FSO")opts=[["FSO_LEARNING_LAB_MONITORING","Learning Lab monitoring"],["LOGISTICS_SUPPORT","Logistics support"],["ISSUE_ESCALATION","Issue / escalation follow-up"],["ME_VISIT","M&E visit (form pending)"]];
-    else if(role==="FT_MT")opts=[["LEARNING_LAB_ACTIVITY","Learning Lab activity"],["LEARNING_LAB_READINESS","Learning Lab readiness check"],["LEARNING_LAB_FOLLOW_UP","Learning Lab follow-up"],["ME_VISIT","M&E visit (form pending)"]];
-    else opts=[["LEARNING_LAB_ACTIVITY","Learning Lab activity"],["LEARNING_LAB_READINESS","Learning Lab readiness check"],["LEARNING_LAB_FOLLOW_UP","Learning Lab follow-up"],["FSO_LEARNING_LAB_MONITORING","Learning Lab monitoring"],["LOGISTICS_SUPPORT","Logistics support"],["ISSUE_ESCALATION","Issue / escalation follow-up"],["ME_VISIT","M&E visit (form pending)"]];
-  }else{
-    if(role==="PT_MT")opts=[["FOLLOW_UP","Follow-up visit"],["COACHING","Coaching visit"],["OBSERVATION","Classroom observation"],["ME_VISIT","M&E visit (form pending)"]];
-    else if(role==="FSO")opts=[["FSO_CASCADE_MONITORING","Cascade school monitoring"],["LOGISTICS_SUPPORT","Logistics support"],["ISSUE_ESCALATION","Issue / escalation follow-up"],["ME_VISIT","M&E visit (form pending)"]];
-    else opts=[["FOLLOW_UP","Follow-up visit"],["COACHING","Coaching visit"],["OBSERVATION","Classroom observation"],["MONITORING","Monitoring / support visit"],["FSO_CASCADE_MONITORING","Cascade school monitoring"],["LOGISTICS_SUPPORT","Logistics support"],["ISSUE_ESCALATION","Issue / escalation follow-up"],["ME_VISIT","M&E visit (form pending)"]];
-  }
-  sel.innerHTML="";opts.forEach(function(x){const o=document.createElement("option");o.value=x[0];o.textContent=x[1];sel.appendChild(o)});if(opts.some(x=>x[0]===current))sel.value=current;
-  const type=String(sel.value||"").toUpperCase();
-  const cardByType={
-    COACHING:"coachingCard", OBSERVATION:"observationCard", ME_VISIT:"mePendingCard",
-    FOLLOW_UP:"followUpCard", MONITORING:"monitoringCard", FSO_CASCADE_MONITORING:"fsoCascadeMonitoringCard",
-    LOGISTICS_SUPPORT:"logisticsSupportCard", ISSUE_ESCALATION:"issueEscalationCard",
-    LEARNING_LAB_ACTIVITY:"learningLabActivityCard", LEARNING_LAB_READINESS:"learningLabReadinessCard",
-    LEARNING_LAB_FOLLOW_UP:"learningLabFollowUpCard", FSO_LEARNING_LAB_MONITORING:"fsoLearningLabMonitoringCard"
-  };
-  const canShowActivityForm=!!school||!!activeVisit;
-  ["coachingCard","observationCard","mePendingCard","followUpCard","monitoringCard","fsoCascadeMonitoringCard","logisticsSupportCard","issueEscalationCard","learningLabActivityCard","learningLabReadinessCard","learningLabFollowUpCard","fsoLearningLabMonitoringCard"].forEach(function(id){
-    const el=$(id);if(el)el.classList.toggle("hidden",!canShowActivityForm||cardByType[type]!==id);
-  });
-}
-
-function renderSchoolOptions(){
-  const sel=$('school');if(!sel)return;
-  const cur=sel.value;sel.innerHTML='<option value="">Select a school...</option>';
-  schools.forEach(function(s){const o=document.createElement('option');o.value=s.schoolKey;o.textContent=s.school+' — '+s.district+', '+s.county;sel.appendChild(o)});
-  if(schools.some(s=>s.schoolKey===cur))sel.value=cur;
-  updateSchoolLocationInfo();updateVisitTypeOptions();
-}
-function updateSchoolLocationInfo(){
-  const s=selectedSchool(),el=$('schoolLocationInfo'),wrap=$('locationCaptureWrap');
-  if(!s){el.textContent='Select a school to see location readiness.';wrap.classList.add('hidden');return}
-  const st=String(s.locationStatus||'NOT CAPTURED').toUpperCase();
-  if(st==='VERIFIED'){
-    el.className='status ok';el.textContent='School location is verified. The visit will be checked against this authoritative location. Geofence: '+Math.round(Number(s.radiusMeters||150))+' m.';wrap.classList.add('hidden');
-  }else if(st==='PROVISIONAL'||st==='PENDING_REVIEW'){
-    el.className='status warn';el.textContent='School location is captured but not officially approved yet. Visits can proceed, but GPS verification will remain provisional until PEN approves the location.';wrap.classList.remove('hidden');
-  }else{
-    el.className='status warn';el.textContent='No official school GPS location has been captured yet. You can still capture visit GPS; the visit will require location review. You may also capture this school\'s location now.';wrap.classList.remove('hidden');
-  }
-}
-$('school').addEventListener('change',function(){updateSchoolLocationInfo();updateVisitTypeOptions()});
-$('visitType').addEventListener('change',function(){updateVisitTypeOptions()});
-
-function connectionUI(){
-  const c=$('connectionPill');
-  if(online()){c.textContent='ONLINE';c.className='pill online';}else{c.textContent='OFFLINE';c.className='pill offline';}
-  return online();
-}
-async function renderQueue(){
-  const q=await idbAll('queue');
-  q.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
-  $('pendingCount').textContent=String(q.length);$('queueInfo').textContent=q.length?q.length+' pending action(s) waiting for internet sync.':'No pending offline records.';
-}
-function updateExpiry(v){$('expiry').textContent=v?fmt(v):'—'}
-async function refreshMeta(){const exp=await metaGet('offlineExpiresAt');updateExpiry(exp);const last=await metaGet('lastSync');$('lastSync').textContent=last?fmt(last):'Never';await renderQueue()}
-
-async function enqueue(action,payload){
-  const item={id:uid('QUEUE'),action:String(action).toUpperCase(),payload:payload,createdAt:isoNow(),attempts:0,lastError:''};
-  await idbPut('queue',item);await renderQueue();
-  return item;
-}
-async function removeQueue(ids){for(const id of ids)await idbDelete('queue',id);await renderQueue()}
-
-function haversine(lat1,lng1,lat2,lng2){
-  const R=6371000,p1=Number(lat1)*Math.PI/180,p2=Number(lat2)*Math.PI/180,dp=(Number(lat2)-Number(lat1))*Math.PI/180,dl=(Number(lng2)-Number(lng1))*Math.PI/180;
-  const a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-function localVerify(gps,school){
-  if(!gps||gps.latitude==null||gps.longitude==null)return {status:'GPS_NOT_CAPTURED',distance:null,reason:'GPS coordinates were not captured.'};
-  if(!school||school.latitude==null||school.longitude==null||!isFinite(Number(school.latitude))||!isFinite(Number(school.longitude)))return {status:'REVIEW_REQUIRED',distance:null,reason:'School GPS location has not been established.'};
-  const distance=haversine(gps.latitude,gps.longitude,school.latitude,school.longitude),radius=Number(school.radiusMeters)||150,acc=Number(gps.accuracy);
-  if(!isFinite(acc))return {status:'REVIEW_REQUIRED',distance:distance,reason:'GPS accuracy could not be determined.'};
-  if(acc>150)return {status:'REVIEW_REQUIRED',distance:distance,reason:'GPS accuracy is above the 150 m limit for automatic verification ('+Math.round(acc)+' m).'};
-  if(distance>radius)return {status:'NOT_VERIFIED',distance:distance,reason:'GPS point is outside the school geofence ('+Math.round(distance)+' m from the recorded school location).'};
-  const st=String(school.locationStatus||'').toUpperCase();
-  if(st==='PROVISIONAL'||st==='PENDING_REVIEW')return {status:'LOCATION_PROVISIONAL',distance:distance,reason:'Point is within the provisional school location, but the school location has not yet been officially verified.'};
-  return {status:'VERIFIED',distance:distance,reason:'GPS point is within the verified school geofence and meets the 150 m accuracy limit.'};
-}
-async function captureGPS(){
-  if(!navigator.geolocation)throw new Error('This device/browser does not provide geolocation.');
-  $('gpsBox').textContent='Acquiring high-accuracy GPS...';
-  const get=(opts)=>new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,opts));
-  let pos;
-  try{pos=await get({enableHighAccuracy:true,timeout:30000,maximumAge:0})}
-  catch(e){pos=await get({enableHighAccuracy:true,timeout:30000,maximumAge:0})}
-  return {latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy,capturedAt:new Date().toISOString()};
-}
-
-window.captureSchoolLocation=async function(){
-  const s=selectedSchool();if(!s){setMessage('Select a school first.','warn');return}
-  try{
-    setMessage('Capturing the school\'s GPS location. Stay at the school while the device obtains a good reading.','');
-    const gps=await captureGPS();
-    const payload={idempotencyKey:uid('LOC'),schoolKey:s.schoolKey,school:s.school,county:s.county,district:s.district,latitude:gps.latitude,longitude:gps.longitude,accuracy:gps.accuracy,source:'FIELD_DEVICE',capturedAt:gps.capturedAt,radiusMeters:s.radiusMeters||150,notes:''};
-    await enqueue('SCHOOL_LOCATION',payload);
-    s.latitude=gps.latitude;s.longitude=gps.longitude;s.locationStatus='PENDING_REVIEW';s.locationSource='FIELD_CAPTURE';s.gpsAccuracy=gps.accuracy;await idbPut('schools',s);renderSchoolOptions();
-    setMessage('School location saved on this device and queued for PEN review. It will not become the authoritative location until approved.','warn');
-    if(online())syncQueue();
-  }catch(e){setMessage('School location was not captured: '+(e.message||e),'bad')}
-};
-
-window.startVisit=async function(){
-  const s=selectedSchool();if(!s){setMessage('Please select a school first.','warn');return}
-  if(activeVisit){setMessage('There is already an active visit on this device. Complete or clear it before starting another.','warn');return}
-  $('startBtn').disabled=true;
-  try{
-    setMessage('Capturing GPS. Please remain at the school while the device obtains the best available reading.','');
-    const gps=await captureGPS();
-    const verification=localVerify(gps,s);
-    const visitID=uid('VISIT');
-    const payload={action:'CHECK_IN',visitID:visitID,idempotencyKey:visitID,schoolKey:s.schoolKey,school:s.school,county:s.county,district:s.district,visitType:$('visitType').value,project:s.project||(String(s.recordType||'').toUpperCase()==='LEARNING_LAB'?'LEARNING_LABS':'CASCADE'),recordType:s.recordType||'CASCADE_SCHOOL',schoolLatitude:s.latitude,schoolLongitude:s.longitude,radiusMeters:s.radiusMeters||150,latitude:gps.latitude,longitude:gps.longitude,accuracy:gps.accuracy,offlineCreated:!online(),capturedAt:gps.capturedAt,notes:''};
-    await enqueue('CHECK_IN',payload);
-    activeVisit={visitID:visitID,school:s,pending:true,payload:payload,checkIn:gps,activityFormVersion:'2026.4',activityReportSaved:false};await metaSet('activeVisit',activeVisit);
-    $('visitType').disabled=true;
-    $('activeCard').classList.remove('hidden');updateVisitTypeOptions();
-    $('visitStatus').textContent='Visit saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');
-    $('visitStatus').className='status '+(verification.status==='VERIFIED'||verification.status==='VERIFIED_LOW_ACCURACY'?'':'warn');
-    $('gpsBox').textContent='Check-in GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
-    $('startBtn').disabled=false;setMessage(online()?'Visit saved and will synchronize now.':'Visit saved offline. You can continue without internet.','ok');
-    if(online())await syncQueue();
-  }catch(e){$('startBtn').disabled=false;setMessage('Visit could not be started: '+(e.message||e),'bad')}
-};
-
-window.checkOutVisit=async function(){
-  if(!activeVisit){setMessage('There is no active visit.','warn');return}
-  const activeType=String(activeVisit.payload&&activeVisit.payload.visitType||$('visitType').value||'').toUpperCase();
-  if(activeVisit.activityFormVersion==='2026.4'&&activeType!=='ME_VISIT'&&!activeVisit.activityReportSaved){setMessage('Save the selected activity form before checking out. The form is saved on this device first and can synchronize later. M&E visits are exempt until the approved M&E form is provided.','warn');return}
-  $('checkoutBtn').disabled=true;
-  try{
-    setMessage('Capturing GPS for check-out...','');
-    const gps=await captureGPS();
-    const verification=localVerify(gps,activeVisit.school);
-    const payload={action:'CHECK_OUT',visitID:activeVisit.visitID,idempotencyKey:activeVisit.visitID+':CHECKOUT',latitude:gps.latitude,longitude:gps.longitude,accuracy:gps.accuracy,capturedAt:gps.capturedAt,notes:$('notes').value||''};
-    await enqueue('CHECK_OUT',payload);
-    $('visitStatus').textContent='Check-out saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');
-    $('visitStatus').className='status '+(verification.status==='VERIFIED'||verification.status==='VERIFIED_LOW_ACCURACY'?'':'warn');
-    $('gpsBox').textContent+='\n\nCheck-out GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
-    $('checkoutBtn').disabled=true;await metaSet('activeVisit',null);activeVisit=null;$('visitType').disabled=false;setMessage(online()?'Check-out saved and will synchronize now.':'Check-out saved offline.','ok');
-    if(online())await syncQueue();
-  }catch(e){$('checkoutBtn').disabled=false;setMessage('Check-out could not be completed: '+(e.message||e),'bad')}
-};
-
-window.saveCoaching=async function(){
-  if(!activeVisit){setMessage('Start a visit before saving a coaching record.','warn');return}
-  if(String(activeVisit.payload&&activeVisit.payload.visitType||$('visitType').value).toUpperCase()!=="COACHING"){setMessage('The coaching form is only for a Coaching visit.','warn');return}
-  $('saveCoachingBtn').disabled=true;
-  const payload={visitID:activeVisit.visitID,idempotencyKey:uid('COACH'),teacherID:$('teacherID').value||'',teacherName:$('teacherName').value||'',subject:$('subject').value||'',grade:$('grade').value||'',coachingFocus:$('coachingFocus').value||'',observationSummary:$('observationSummary').value||'',strengthsObserved:$('strengthsObserved').value||'',supportNeeded:$('supportNeeded').value||'',agreedAction:$('agreedAction').value||'',nextFollowUpDate:$('nextFollowUpDate').value||'',surveyVersion:'COACHING-PRE-ME-V1',mePayload:{formType:'COACHING'},clientSubmittedAt:isoNow()};
-  try{await enqueue('COACHING',payload);activeVisit.activityReportSaved=true;activeVisit.activityReportType='COACHING';await metaSet('activeVisit',activeVisit);setMessage(online()?'Coaching record saved on this device and will synchronize now.':'Coaching record saved offline.','ok');if(online())await syncQueue()}catch(e){setMessage('Coaching record could not be saved locally: '+(e.message||e),'bad')}finally{$('saveCoachingBtn').disabled=false}
-};
-
-window.saveObservation=async function(){
-  if(!activeVisit){setMessage('Start a visit before saving a classroom observation.','warn');return}
-  if(String(activeVisit.payload&&activeVisit.payload.visitType||$('visitType').value).toUpperCase()!=="OBSERVATION"){setMessage('The classroom observation form is only for a Classroom Observation visit.','warn');return}
-  const btn=$('saveObservationBtn');btn.disabled=true;
-  const payload={visitID:activeVisit.visitID,idempotencyKey:uid('OBS'),teacherID:$('obsTeacherID').value||'',teacherName:$('obsTeacherName').value||'',subject:$('obsSubject').value||'',grade:$('obsGrade').value||'',coachingFocus:'',observationSummary:$('obsLessonObjective').value||'',strengthsObserved:$('obsStrengths').value||'',supportNeeded:$('obsImprovement').value||'',agreedAction:$('obsNextSteps').value||'',nextFollowUpDate:'',surveyVersion:'CLASSROOM-OBSERVATION-PRE-ME-V1',mePayload:{formType:'CLASSROOM_OBSERVATION',lessonObjective:$('obsLessonObjective').value||'',teachingPractice:$('obsTeachingPractice').value||'',feedbackShared:$('obsFeedback').value||''},clientSubmittedAt:isoNow()};
-  try{await enqueue('COACHING',payload);activeVisit.activityReportSaved=true;activeVisit.activityReportType='OBSERVATION';await metaSet('activeVisit',activeVisit);setMessage(online()?'Classroom observation saved on this device and will synchronize now.':'Classroom observation saved offline.','ok');if(online())await syncQueue()}catch(e){setMessage('Classroom observation could not be saved locally: '+(e.message||e),'bad')}finally{btn.disabled=false}
-};
-
-function collectActivityFormData(cardId){
-  const card=$(cardId);const responses={};if(!card)return responses;
-  card.querySelectorAll('[data-report-key]').forEach(function(el){
-    responses[String(el.dataset.reportKey||el.id)]=String(el.value==null?'':el.value).trim();
-  });
-  return responses;
-}
-function activityReportText(label,value){return value?label+': '+value:''}
-function activityReportNumber(value){const n=Number(value);return isFinite(n)?Math.max(0,Math.floor(n)):0}
-window.saveActivityReport=async function(type){
-  if(!activeVisit){setMessage('Start a GPS-verified visit before saving this activity form.','warn');return}
-  const selectedType=String(activeVisit.payload&&activeVisit.payload.visitType||$('visitType').value||'').toUpperCase();
-  type=String(type||'').toUpperCase();
-  if(selectedType!==type){setMessage('The selected activity does not match the active visit. Return to the correct activity before saving.','bad');return}
-  const cardByType={FOLLOW_UP:'followUpCard',MONITORING:'monitoringCard',FSO_CASCADE_MONITORING:'fsoCascadeMonitoringCard',LOGISTICS_SUPPORT:'logisticsSupportCard',ISSUE_ESCALATION:'issueEscalationCard',LEARNING_LAB_ACTIVITY:'learningLabActivityCard',LEARNING_LAB_READINESS:'learningLabReadinessCard',LEARNING_LAB_FOLLOW_UP:'learningLabFollowUpCard',FSO_LEARNING_LAB_MONITORING:'fsoLearningLabMonitoringCard'};
-  const cardId=cardByType[type];if(!cardId){setMessage('This activity does not have a field-report form yet.','warn');return}
-  const responses=collectActivityFormData(cardId);
-  const required={
-    FOLLOW_UP:['purpose','progress'],MONITORING:['monitoringFocus','findings'],FSO_CASCADE_MONITORING:['monitoringObservations'],
-    LOGISTICS_SUPPORT:['items','details'],ISSUE_ESCALATION:['issueDetails'],LEARNING_LAB_ACTIVITY:['activity','summary'],
-    LEARNING_LAB_READINESS:['readinessGaps'],LEARNING_LAB_FOLLOW_UP:['previousActions','progressEvidence'],FSO_LEARNING_LAB_MONITORING:['observations']
-  }[type]||[];
-  const missing=required.filter(function(k){return !String(responses[k]||'').trim()});
-  if(missing.length){const labelMap={purpose:'Purpose of follow-up',progress:'Progress since the last visit',monitoringFocus:'Monitoring focus',findings:'Key findings',monitoringObservations:'Monitoring observations',items:'Item(s) or support',details:'Context / delivery details',issueDetails:'Issue description',activity:'Activity conducted',summary:'Activity summary',readinessGaps:'Readiness gaps / evidence',previousActions:'Previous actions reviewed',progressEvidence:'Evidence of progress',observations:'Monitoring observations'};setMessage('Complete the required field(s): '+missing.map(k=>labelMap[k]||k).join(', ')+'.','warn');return}
-  const card=$(cardId),btn=card?card.querySelector('button[onclick^="saveActivityReport"]'):null;if(btn)btn.disabled=true;
-  const report={activitySummary:'',teachersReached:0,learnersReached:0,materialsStatus:'',logisticsSupport:'',issuesIdentified:'',escalationRequired:'NO',followUpAction:'',followUpDate:''};
-  const lines=function(pairs){return pairs.map(function(p){return activityReportText(p[0],responses[p[1]]||'')}).filter(Boolean).join('\n')};
-  switch(type){
-    case 'FOLLOW_UP':
-      report.activitySummary=lines([['Purpose','purpose'],['Progress since previous visit','progress']]);report.teachersReached=activityReportNumber(responses.teachersReached);report.learnersReached=activityReportNumber(responses.learnersReached);report.issuesIdentified=responses.challenges||'';report.followUpAction=responses.nextAction||'';report.followUpDate=responses.dueDate||'';break;
-    case 'MONITORING':
-      report.activitySummary=lines([['Monitoring focus','monitoringFocus'],['Findings','findings']]);report.teachersReached=activityReportNumber(responses.teachersReached);report.learnersReached=activityReportNumber(responses.learnersReached);report.materialsStatus=responses.materialsStatus||'';report.issuesIdentified=responses.issues||'';report.escalationRequired=responses.escalationRequired||'NO';report.followUpAction=responses.followUpAction||'';report.followUpDate=responses.followUpDate||'';break;
-    case 'FSO_CASCADE_MONITORING':
-      report.activitySummary=lines([['Monitoring observations','monitoringObservations'],['Implementation / teaching practice','implementationObserved']]);report.teachersReached=activityReportNumber(responses.teachersReached);report.learnersReached=activityReportNumber(responses.learnersReached);report.materialsStatus=responses.materialsStatus||'';report.issuesIdentified=responses.issues||'';report.escalationRequired=responses.escalationRequired||'NO';report.followUpAction=responses.followUpAction||'';report.followUpDate=responses.followUpDate||'';break;
-    case 'LOGISTICS_SUPPORT':
-      report.activitySummary=lines([['Activity','logisticsActivity'],['Item(s)','items'],['Quantity','quantity'],['Status','status'],['Context / details','details']]);report.materialsStatus=lines([['Items','items'],['Quantity','quantity'],['Status','status']]);report.logisticsSupport=report.activitySummary;report.issuesIdentified=responses.issues||'';report.escalationRequired=responses.escalationRequired||'NO';report.followUpAction=responses.followUpAction||'';report.followUpDate=responses.followUpDate||'';break;
-    case 'ISSUE_ESCALATION':
-      report.activitySummary=lines([['Category','category'],['Severity','severity'],['Issue details','issueDetails']]);report.issuesIdentified=report.activitySummary;report.escalationRequired=String(responses.severity||'LOW').toUpperCase()==='URGENT'?'URGENT':(['HIGH','MEDIUM'].indexOf(String(responses.severity||'').toUpperCase())>=0?'YES':'NO');report.followUpAction=lines([['Immediate action','immediateAction'],['Responsible person / team','responsible']]);report.followUpDate=responses.dueDate||'';break;
-    case 'LEARNING_LAB_ACTIVITY':
-      report.activitySummary=lines([['Activity','activity'],['Summary and outcome','summary']]);report.teachersReached=activityReportNumber(responses.teachersReached);report.learnersReached=activityReportNumber(responses.learnersReached);report.materialsStatus=responses.materialsStatus||'';report.issuesIdentified=responses.issues||'';report.escalationRequired=responses.escalationRequired||'NO';report.followUpAction=responses.followUpAction||'';report.followUpDate=responses.followUpDate||'';break;
-    case 'LEARNING_LAB_READINESS':
-      report.activitySummary=lines([['Workspace ready','workspaceReady'],['Materials available','materialsAvailable'],['Facilitator available','facilitatorAvailable'],['Safety / accessibility concerns','safetyConcerns'],['Readiness gaps / evidence','readinessGaps']]);report.materialsStatus=lines([['Workspace','workspaceReady'],['Materials','materialsAvailable']]);report.issuesIdentified=String(responses.readinessGaps||'')+(responses.safetyConcerns==='YES'?'\nSafety / accessibility concerns reported.':'');report.escalationRequired=responses.safetyConcerns==='YES'?'YES':'NO';report.followUpAction=responses.followUpAction||'';report.followUpDate=responses.followUpDate||'';break;
-    case 'LEARNING_LAB_FOLLOW_UP':
-      report.activitySummary=lines([['Previous actions','previousActions'],['Progress status','progressStatus'],['Progress evidence','progressEvidence']]);report.issuesIdentified=responses.remainingChallenges||'';report.escalationRequired=responses.escalationRequired||'NO';report.followUpAction=responses.followUpAction||'';report.followUpDate=responses.followUpDate||'';break;
-    case 'FSO_LEARNING_LAB_MONITORING':
-      report.activitySummary=lines([['Sessions / activities monitored','sessionsMonitored'],['Facilitator present','facilitatorPresent'],['Monitoring observations','observations']]);report.learnersReached=activityReportNumber(responses.learnersReached);report.materialsStatus=responses.materialsStatus||'';report.issuesIdentified=responses.issues||'';report.escalationRequired=responses.escalationRequired||'NO';report.followUpAction=responses.followUpAction||'';report.followUpDate=responses.followUpDate||'';break;
-  }
-  const payload=Object.assign({
-    visitID:activeVisit.visitID,idempotencyKey:uid('REPORT'),project:activeVisit.school.project||(String(activeVisit.school.recordType||'').toUpperCase()==='LEARNING_LAB'?'LEARNING_LABS':'CASCADE'),
-    visitType:type,clientSubmittedAt:isoNow(),activityFormData:{formType:type,formVersion:'TEMPORARY_PRE_ME_V1',responses:responses}
-  },report);
-  try{
-    await enqueue('FIELD_REPORT',payload);
-    activeVisit.activityReportSaved=true;activeVisit.activityReportType=type;await metaSet('activeVisit',activeVisit);
-    setMessage(online()? 'Activity-specific report saved on this device and will synchronize now.':'Activity-specific report saved offline and will synchronize when connectivity returns.','ok');
-    if(online())await syncQueue();
-  }catch(e){setMessage('The activity report could not be saved locally: '+(e.message||e),'bad')}
-  finally{if(btn)btn.disabled=false}
-};
-
-window.syncQueue=async function(){
-  if(syncRunning)return;
-  if(!offlineToken){setMessage('Offline access is not prepared. Open the Field Visit App from the PEN Portal while online.','bad');return}
-  if(!online()){setMessage('Internet is unavailable. Pending records remain safely stored on this device.','warn');return}
-  syncRunning=true;$('syncBtn').disabled=true;$('refreshBtn').disabled=true;$('syncPill').textContent='SYNCING';$('syncPill').className='pill syncing';setMessage('Synchronizing pending field records with PEN...','');
-  try{
-    const q=await idbAll('queue');q.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
-    let processed=0;const failed=[];
-    for(let i=0;i<q.length;i+=25){
-      const batch=q.slice(i,i+25);
-      const resp=await bridgeCall('SYNC',[offlineToken,batch]);
-      const resultList=Array.isArray(resp&&resp.results)?resp.results:[];const removed=[];
-      for(const r of resultList){if(r.success)removed.push(r.id)}
-      await removeQueue(removed);
-      processed+=removed.length;
-      for(const item of batch){if(!removed.includes(item.id)){const serverResult=resultList.find(x=>x.id===item.id);const stored=await idbGet('queue',item.id);if(stored){stored.attempts=(stored.attempts||0)+1;stored.lastError=serverResult&&serverResult.error?serverResult.error:'Synchronization failed.';await idbPut('queue',stored);failed.push(stored)}}}
-      if((resp&&resp.remaining||0)>0)break;
-    }
-    const remaining=await idbAll('queue');
-    if(remaining.length){setMessage(processed+' action(s) synchronized. '+remaining.length+' remain pending.'+(failed.length?' Check the queue message if a server error is reported.':''),'warn');$('syncPill').textContent='PENDING';}
-    else{await metaSet('lastSync',isoNow());setMessage(processed?'All pending field records synchronized successfully.':'No pending records needed synchronization.','ok');$('syncPill').textContent='SYNCED';}
-    $('syncPill').className='pill '+(remaining.length?'offline':'online');await refreshMeta();
-  }catch(e){setMessage('Synchronization could not complete: '+(e.message||e),'bad');$('syncPill').textContent='SYNC ERROR';$('syncPill').className='pill offline';}
-  finally{syncRunning=false;$('syncBtn').disabled=false;$('refreshBtn').disabled=false}
-};
-
-window.refreshOfflineData=async function(){
-  if(!online()){setMessage('Connect to the internet before refreshing offline data. Existing cached schools remain available offline.','warn');return}
-  if(!offlineToken){setMessage('No offline access token is stored. Open this app from the PEN Portal while online.','bad');return}
-  $('refreshBtn').disabled=true;setMessage('Refreshing your offline school list and access package...','');
-  try{
-    let bundle;
-    try{bundle=await bridgeCall('REFRESH',[offlineToken])}
-    catch(e){
-      setMessage('Offline access may have expired. Open Field Visits from the PEN Portal while online to renew it. Existing local data has not been deleted.','warn');throw e
-    }
-    await saveBundle(bundle);setMessage('Offline data refreshed. '+schools.length+' assigned school(s) are cached on this device.','ok');await renderQueue();
-  }catch(e){/* message already shown */}
-  finally{$('refreshBtn').disabled=false}
-};
-
-async function initialLoad(){
-  connectionUI();
-  try{
-    const storedBridge=await metaGet('bridgeUrl');
-    if(!bridgeUrl && storedBridge)bridgeUrl=String(storedBridge);
-    if(bridgeUrl)await metaSet('bridgeUrl',bridgeUrl);
-    setupBridge();
-    const storedToken=await metaGet('offlineToken');if(!offlineToken)offlineToken=storedToken||'';if(offlineToken)await metaSet('offlineToken',offlineToken);
-    await loadSchoolsFromDB();
-    const active=await metaGet('activeVisit');if(active){activeVisit=active;showActiveVisitFromStorage(active)}
-    await refreshMeta();
-
-    if(online()&&(bridgeUrl||parentBridgeAvailable())){
-      try{
-        let bundle;
-        if(parentBridgeAvailable())bundle=await bridgeCall('PROVISION',[]);
-        else if(offlineToken)bundle=await bridgeCall('GET_BUNDLE',[offlineToken]);
-        else if(normalToken)bundle=await bridgeCall('PROVISION',[normalToken]);
-        if(bundle){await saveBundle(bundle);setMessage('Offline field access is ready. '+schools.length+' assigned school(s) are available on this device.','ok');$('visitCard').classList.remove('hidden');$('setupCard').classList.add('hidden')}
-        else throw new Error('No offline bundle was received.');
-      }catch(e){
-        if(schools.length){$('visitCard').classList.remove('hidden');$('setupCard').classList.add('hidden');setMessage('Using the school data already stored on this device. Server refresh is currently unavailable.','warn')}
-        else{$('setupCard').classList.remove('hidden');setMessage('Open this app from the PEN Portal while online to prepare offline access.','warn')}
+      if (data.type === 'PEN_SESSION_INVALID' && mode === 'dashboard') {
+        safeRemove('PEN_SESSION_TOKEN');
+        safeRemove('PEN_ACCOUNT');
+        loadLogin();
       }
-    }else if(schools.length){$('visitCard').classList.remove('hidden');$('setupCard').classList.add('hidden');setMessage('Offline mode is active. Your cached school data is available.','warn')}
-    else{$('setupCard').classList.remove('hidden');setMessage('This device is offline and has no prepared field-access package yet.','warn')}
-  }catch(e){setMessage('The offline storage system could not start: '+(e.message||e),'bad')}
-  connectionUI();
-}
-function showActiveVisitFromStorage(v){
-  if(v&&v.school&&v.school.schoolKey&&schools.some(function(s){return String(s.schoolKey)===String(v.school.schoolKey)}))$('school').value=v.school.schoolKey;
-  if(v&&v.payload&&v.payload.visitType)$('visitType').value=v.payload.visitType;
-  $('visitType').disabled=true;
-  updateSchoolLocationInfo();updateVisitTypeOptions();
-  if(v&&v.payload&&v.payload.visitType)$('visitType').value=v.payload.visitType;
-  updateVisitTypeOptions();
-  $('activeCard').classList.remove('hidden');$('visitStatus').textContent='An active visit is saved on this device for '+(v.school&&v.school.school||'the selected school')+'.';$('visitStatus').className='status warn';$('gpsBox').textContent=v.checkIn?'Check-in GPS\nLatitude: '+v.checkIn.latitude+'\nLongitude: '+v.checkIn.longitude+'\nAccuracy: '+Math.round(v.checkIn.accuracy)+' m':'Visit saved offline.';
-}
+    });
 
-window.addEventListener('online',async function(){connectionUI();setMessage('Internet restored. Preparing the secure sync connection...','ok');try{if(bridgeUrl&&!parentBridgeAvailable()){bridgeReady=false;setupBridge()}await syncQueue();if(offlineToken)await refreshOfflineData()}catch(_){} });
-window.addEventListener('offline',function(){connectionUI();setMessage('You are offline. Field visits continue to work using the data already stored on this device.','warn')});
-window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredInstallPrompt=e;$('installBtn').style.display='inline-block'});
-window.installApp=async function(){if(!deferredInstallPrompt)return;deferredInstallPrompt.prompt();try{await deferredInstallPrompt.userChoice}catch(_){}deferredInstallPrompt=null;$('installBtn').style.display='none'};
+    frame.addEventListener('load', function () {
+      loading.style.display = 'none';
+      showOffline();
+    });
+    window.addEventListener('offline', showOffline);
+    window.addEventListener('online', function () {
+      showOffline();
+      if (mode === 'unknown' || mode === 'offline') {
+        var token = safeGet('PEN_SESSION_TOKEN');
+        token ? loadDashboard(token) : loadLogin();
+      }
+    });
 
-if('serviceWorker' in navigator){const appBase=new URL('./',location.href);const workerUrl=new URL('./sw.js',location.href);navigator.serviceWorker.register(workerUrl.href,{scope:appBase.pathname}).then(function(reg){reg.update().catch(function(){});}).catch(function(){setMessage('Offline application caching is not active yet. Publish the supplied sw.js beside index.html, then reload this page while online.','warn')})}
+    // A logout query is used by the portal's existing sign-out flow to clear the
+    // shell's token and return to the embedded login, without leaving the PWA.
+    var qs = new URLSearchParams(window.location.search);
+    if (qs.get('logout') === '1') {
+      safeRemove('PEN_SESSION_TOKEN');
+      safeRemove('PEN_ACCOUNT');
+      cleanQuery();
+    } else {
+      var urlToken = qs.get('token') || qs.get('sessionToken') || '';
+      if (urlToken) safeSet('PEN_SESSION_TOKEN', urlToken);
+      if (urlToken || qs.has('token') || qs.has('sessionToken') || qs.has('t')) cleanQuery();
+    }
 
-initialLoad();
-})();
-</script>
+    if (navigator.onLine === false) {
+      mode = 'offline';
+      showOffline();
+    } else {
+      var token = safeGet('PEN_SESSION_TOKEN');
+      token ? loadDashboard(token) : loadLogin();
+    }
+
+    if ('serviceWorker' in navigator) {
+      var root = new URL('./', window.location.href);
+      navigator.serviceWorker.register(new URL('sw.js', root).href, {scope: root.pathname})
+        .then(function (registration) { registration.update().catch(function () {}); })
+        .catch(function () {});
+    }
+  })();
+  </script>
 </body>
 </html>
