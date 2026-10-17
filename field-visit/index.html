@@ -92,6 +92,17 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <button id="checkoutBtn" onclick="checkOutVisit()">Check Out &amp; Verify Visit</button>
   </div>
 
+  <div id="customMneCard" class="card hidden">
+    <h2>3. M&amp;E Fieldwork Forms</h2>
+    <div class="small">Published forms assigned to your staff category are available here. Refresh while online to receive newly published versions.</div>
+    <label class="label" for="customMneFormSelect">Select form</label>
+    <select id="customMneFormSelect" onchange="renderCustomMneForm()"><option value="">No published forms available</option></select>
+    <div id="customMneFormDescription" class="small"></div>
+    <div id="customMneQuestions"></div>
+    <button id="saveCustomMneBtn" onclick="saveCustomMneForm()">Save M&amp;E Form</button>
+    <div id="customMneMessage" class="status"></div>
+  </div>
+
   <div id="coachingCard" class="card hidden">
     <h2>3. Coaching / Observation Record</h2>
     <label class="label" for="teacherID">Teacher ID</label><input id="teacherID" placeholder="Optional">
@@ -365,6 +376,9 @@ async function saveBundle(bundle){
   const newKeys={};schools.forEach(s=>newKeys[String(s.schoolKey)]=true);
   for(const s of existing){if(!newKeys[s.schoolKey])await idbDelete('schools',s.schoolKey)}
   for(const s of schools)await idbPut('schools',s);
+  const mneForms=Array.isArray(bundle.forms)?bundle.forms:[];
+  await metaSet('mnePublishedForms',mneForms);
+  renderCustomMneFormOptions(mneForms);
   if(bundle.offlineToken){offlineToken=bundle.offlineToken;await metaSet('offlineToken',offlineToken)}
   await metaSet('offlineExpiresAt',bundle.expiresAt||'');
   await metaSet('actor',bundle.actor||{});
@@ -496,7 +510,7 @@ window.startVisit=async function(){
     await enqueue('CHECK_IN',payload);
     activeVisit={visitID:visitID,school:s,pending:true,payload:payload,checkIn:gps,activityFormVersion:'2026.4',activityReportSaved:false};await metaSet('activeVisit',activeVisit);
     $('visitType').disabled=true;
-    $('activeCard').classList.remove('hidden');updateVisitTypeOptions();
+    $('activeCard').classList.remove('hidden');$('customMneCard').classList.toggle('hidden',!mnePublishedForms.length);updateVisitTypeOptions();
     $('visitStatus').textContent='Visit saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');
     $('visitStatus').className='status '+(verification.status==='VERIFIED'||verification.status==='VERIFIED_LOW_ACCURACY'?'':'warn');
     $('gpsBox').textContent='Check-in GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
@@ -529,6 +543,12 @@ function clearTeacherSpecificFields(fieldIds){
   // Clear only the just-saved teacher/report inputs; retain the active school, visit, GPS, and visit type.
   (fieldIds||[]).forEach(function(id){var el=$(id);if(el)el.value='';});
 }
+
+function mneHtmlSafe(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+let mnePublishedForms=[];
+function renderCustomMneFormOptions(forms){mnePublishedForms=Array.isArray(forms)?forms:[];const sel=$('customMneFormSelect');if(!sel)return;const prev=sel.value;sel.innerHTML='<option value="">Select a published form...</option>'+mnePublishedForms.map(function(f,i){return '<option value="'+i+'">'+mneHtmlSafe(f.title)+' · v'+mneHtmlSafe(f.version)+'</option>'}).join('');if(prev&&mnePublishedForms[Number(prev)])sel.value=prev;renderCustomMneForm()}
+window.renderCustomMneForm=function(){const sel=$('customMneFormSelect'),box=$('customMneQuestions'),desc=$('customMneFormDescription');if(!sel||!box)return;const f=mnePublishedForms[Number(sel.value)];if(!f){box.innerHTML='';if(desc)desc.textContent='';return}if(desc)desc.textContent=f.description||'';box.innerHTML=(f.questions||[]).map(function(q,i){const id='mneAnswer_'+mneHtmlSafe(q.id),req=q.required?' required':'';let control='';if(q.type==='long_text')control='<textarea id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'"'+req+'></textarea>';else if(q.type==='multiple_choice'||q.type==='dropdown'||q.type==='yes_no'){const opts=q.type==='yes_no'?['Yes','No']:(q.options||[]);control='<select id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'"'+req+'><option value="">Select...</option>'+opts.map(function(o){return '<option value="'+mneHtmlSafe(o)+'">'+mneHtmlSafe(o)+'</option>'}).join('')+'</select>'}else if(q.type==='checkboxes'){control=(q.options||[]).map(function(o,j){return '<label><input type="checkbox" data-mne-check="'+mneHtmlSafe(q.id)+'" value="'+mneHtmlSafe(o)+'"> '+mneHtmlSafe(o)+'</label>'}).join('<br>')}else{const type=q.type==='number'?'number':q.type==='date'?'date':q.type==='rating'?'number':'text';control='<input id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'" type="'+type+'"'+(q.type==='rating'?' min="1" max="5" step="1"':'')+req+'>'}return '<div class="field" style="margin:12px 0"><label class="label" for="'+id+'">'+(i+1)+'. '+mneHtmlSafe(q.label)+(q.required?' *':'')+'</label>'+(q.helpText?'<div class="small">'+mneHtmlSafe(q.helpText)+'</div>':'')+control+'</div>'}).join('');const card=$('customMneCard');if(card)card.classList.toggle('hidden',!activeVisit||!f)};
+window.saveCustomMneForm=async function(){if(!activeVisit){setMessage('Start a GPS-verified visit before submitting an M&E form.','warn');return}const sel=$('customMneFormSelect'),f=mnePublishedForms[Number(sel&&sel.value)];if(!f){setMessage('No published form is selected. Refresh offline data while online.','warn');return}const responses={};for(const q of (f.questions||[])){let v;if(q.type==='checkboxes'){v=Array.from(document.querySelectorAll('[data-mne-check="'+q.id.replace(/"/g,'\\"')+'"]:checked')).map(function(el){return el.value})}else{const el=document.querySelector('[data-mne-answer="'+q.id.replace(/"/g,'\\"')+'"]');v=el?String(el.value||'').trim():''}if(q.required&&(v===''||(Array.isArray(v)&&!v.length))){setMessage('Please answer the required question: '+q.label,'warn');return}responses[q.id]=v}const btn=$('saveCustomMneBtn');if(btn)btn.disabled=true;const payload={visitID:activeVisit.visitID,idempotencyKey:uid('MNE'),project:activeVisit.school&&activeVisit.school.project||(String(activeVisit.school&&activeVisit.school.recordType||'').toUpperCase()==='LEARNING_LAB'?'LEARNING_LABS':'CASCADE'),visitType:String(activeVisit.payload&&activeVisit.payload.visitType||$('visitType').value||'ME_VISIT').toUpperCase(),clientSubmittedAt:isoNow(),activityFormData:{customFormId:f.formID,formVersion:f.version,responses:responses},activitySummary:'M&E form: '+f.title,teachersReached:0,learnersReached:0,materialsStatus:'',logisticsSupport:'',issuesIdentified:'',escalationRequired:'NO',followUpAction:'',followUpDate:''};try{await enqueue('FIELD_REPORT',payload);activeVisit.activityReportSaved=true;activeVisit.activityReportType='MNE_CUSTOM';await metaSet('activeVisit',activeVisit);const msg=$('customMneMessage');if(msg){msg.textContent=online()?'Form saved on this device; synchronizing now.':'Form saved offline and will synchronize when connectivity returns.';msg.className='status ok'}if(online())await syncQueue();renderCustomMneForm()}catch(e){setMessage('M&E form could not be saved locally: '+(e.message||e),'bad')}finally{if(btn)btn.disabled=false}};
 
 window.saveCoaching=async function(){
   if(!activeVisit){setMessage('Start a visit before saving a coaching record.','warn');return}
@@ -648,6 +668,7 @@ window.refreshOfflineData=async function(){
 };
 
 async function initialLoad(){
+  try{renderCustomMneFormOptions(await metaGet('mnePublishedForms')||[])}catch(_){}
   connectionUI();
   try{
     const storedBridge=await metaGet('bridgeUrl');
@@ -683,7 +704,7 @@ function showActiveVisitFromStorage(v){
   updateSchoolLocationInfo();updateVisitTypeOptions();
   if(v&&v.payload&&v.payload.visitType)$('visitType').value=v.payload.visitType;
   updateVisitTypeOptions();
-  $('activeCard').classList.remove('hidden');$('visitStatus').textContent='An active visit is saved on this device for '+(v.school&&v.school.school||'the selected school')+'.';$('visitStatus').className='status warn';$('gpsBox').textContent=v.checkIn?'Check-in GPS\nLatitude: '+v.checkIn.latitude+'\nLongitude: '+v.checkIn.longitude+'\nAccuracy: '+Math.round(v.checkIn.accuracy)+' m':'Visit saved offline.';
+  $('activeCard').classList.remove('hidden');$('customMneCard').classList.toggle('hidden',!mnePublishedForms.length);$('visitStatus').textContent='An active visit is saved on this device for '+(v.school&&v.school.school||'the selected school')+'.';$('visitStatus').className='status warn';$('gpsBox').textContent=v.checkIn?'Check-in GPS\nLatitude: '+v.checkIn.latitude+'\nLongitude: '+v.checkIn.longitude+'\nAccuracy: '+Math.round(v.checkIn.accuracy)+' m':'Visit saved offline.';
 }
 
 window.addEventListener('online',async function(){connectionUI();setMessage('Internet restored. Preparing the secure sync connection...','ok');try{if(bridgeUrl&&!parentBridgeAvailable()){bridgeReady=false;setupBridge()}await syncQueue();if(offlineToken)await refreshOfflineData()}catch(_){} });
