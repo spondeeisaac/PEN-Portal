@@ -89,13 +89,13 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 
   <div id="customMneCard" class="card hidden">
     <h2>3. M&amp;E Fieldwork Forms</h2>
-    <div class="small">Only the latest published forms assigned to your staff role appear here. New or edited forms refresh automatically while online; use Refresh Offline Data to synchronize immediately.</div>
+    <div class="small">Select any current published form to preview it before a visit. M&amp;E, Admin and Staff can access all published forms; field teams see forms assigned to their role. Drafts are not available for submission.</div>
     <label class="label" for="customMneFormSelect">Select form</label>
     <select id="customMneFormSelect" onchange="renderCustomMneForm()"><option value="">No published forms available</option></select>
-    <div class="actions" style="margin:8px 0"><button type="button" class="secondary" onclick="refreshPublishedMneForms(false)">Refresh Published Forms</button></div>
+    <div class="actions" style="margin:8px 0"><button id="refreshPublishedMneBtn" type="button" class="secondary" onclick="refreshPublishedMneForms(false)">Refresh Published Forms</button><button id="previewCustomMneBtn" type="button" class="secondary" onclick="previewCustomMneForm()">Preview Selected Form</button></div><div id="customMnePreviewNotice" class="status warn hidden" aria-live="polite">Preview mode: read-only. Start a field visit to enter answers and save a record.</div>
     <div id="customMneFormDescription" class="small"></div>
     <div id="customMneQuestions"></div>
-    <button id="saveCustomMneBtn" onclick="saveCustomMneForm()">Save M&amp;E Form</button>
+    <button id="saveCustomMneBtn" type="button" class="hidden" onclick="saveCustomMneForm()">Save M&amp;E Form</button>
     <div id="customMneMessage" class="status"></div>
   </div>
 
@@ -106,7 +106,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <button class="secondary" onclick="syncQueue()">Sync Now</button>
   </div>
 
-  <footer>PEN Field Visit Offline App • Application version 2026.7</footer>
+  <footer>PEN Field Visit Offline App • Application version 2026.8</footer>
 </div>
 
 <iframe id="bridgeFrame" title="PEN secure field bridge" aria-hidden="true"></iframe>
@@ -114,7 +114,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.7';
+const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.8';
 const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026';
 const DB_VERSION=1;
 const BRIDGE_SOURCE='PEN_FIELD_VISIT_PWA_2026';
@@ -243,8 +243,7 @@ function updateVisitTypeOptions(){
   sel.innerHTML='';
   const option=document.createElement('option');option.value='ME_VISIT';option.textContent='M&E Field Visit';sel.appendChild(option);
   sel.value='ME_VISIT';
-  const card=$("customMneCard");
-  if(card)card.classList.toggle('hidden',!activeVisit||!mnePublishedForms.length);
+  updateCustomMneCardVisibility();
 }
 
 function renderSchoolOptions(){
@@ -340,7 +339,7 @@ window.startVisit=async function(){
     await enqueue('CHECK_IN',payload);
     activeVisit={visitID:visitID,school:s,pending:true,payload:payload,checkIn:gps,activityFormVersion:'2026.7',mneFormsSyncedAt:(await metaGet('mneFormsSyncedAt'))||'',activityReportSaved:false};await metaSet('activeVisit',activeVisit);
     $('visitType').disabled=true;
-    $('activeCard').classList.remove('hidden');$('customMneCard').classList.toggle('hidden',!mnePublishedForms.length);updateVisitTypeOptions();
+    $('activeCard').classList.remove('hidden');updateVisitTypeOptions();renderCustomMneForm();
     $('visitStatus').textContent='Visit saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');
     $('visitStatus').className='status '+(verification.status==='VERIFIED'||verification.status==='VERIFIED_LOW_ACCURACY'?'':'warn');
     $('gpsBox').textContent='Check-in GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
@@ -363,7 +362,7 @@ window.checkOutVisit=async function(){
     $('visitStatus').textContent='Check-out saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');
     $('visitStatus').className='status '+(verification.status==='VERIFIED'||verification.status==='VERIFIED_LOW_ACCURACY'?'':'warn');
     $('gpsBox').textContent+='\n\nCheck-out GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
-    $('checkoutBtn').disabled=true;await metaSet('activeVisit',null);activeVisit=null;$('visitType').disabled=false;setMessage(online()?'Check-out saved and will synchronize now.':'Check-out saved offline.','ok');
+    $('checkoutBtn').disabled=true;await metaSet('activeVisit',null);activeVisit=null;$('visitType').disabled=false;renderCustomMneForm();setMessage(online()?'Check-out saved and will synchronize now.':'Check-out saved offline.','ok');
     if(online()){await syncQueue();await window.refreshPublishedMneForms(true)}
   }catch(e){$('checkoutBtn').disabled=false;setMessage('Check-out could not be completed: '+(e.message||e),'bad')}
 };
@@ -377,11 +376,43 @@ function renderCustomMneFormOptions(forms){
   const previousKey=previous?String(previous.formID)+'|'+String(previous.version):'';
   mnePublishedForms=Array.isArray(forms)?forms:[];
   if(!sel)return;
-  sel.innerHTML='<option value="">Select a published form...</option>'+mnePublishedForms.map(function(f,i){return '<option value="'+i+'">'+mneHtmlSafe(f.title)+' · v'+mneHtmlSafe(f.version)+'</option>'}).join('');
+  sel.innerHTML=mnePublishedForms.length?'<option value="">Select a published form...</option>'+mnePublishedForms.map(function(f,i){return '<option value="'+i+'">'+mneHtmlSafe(f.title)+' · v'+mneHtmlSafe(f.version)+'</option>'}).join(''):'<option value="">No published forms available — refresh while online</option>';
   if(previousKey){const next=mnePublishedForms.findIndex(function(f){return String(f.formID)+'|'+String(f.version)===previousKey;});if(next>=0)sel.value=String(next)}
   renderCustomMneForm();
 }
-window.renderCustomMneForm=function(){const sel=$('customMneFormSelect'),box=$('customMneQuestions'),desc=$('customMneFormDescription');if(!sel||!box)return;const f=mnePublishedForms[Number(sel.value)];if(!f){box.innerHTML='';if(desc)desc.textContent='';return}if(desc)desc.textContent=f.description||'';box.innerHTML=(f.questions||[]).map(function(q,i){const id='mneAnswer_'+mneHtmlSafe(q.id),req=q.required?' required':'';let control='';if(q.type==='long_text')control='<textarea id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'"'+req+'></textarea>';else if(q.type==='multiple_choice'||q.type==='dropdown'||q.type==='yes_no'){const opts=q.type==='yes_no'?['Yes','No']:(q.options||[]);control='<select id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'"'+req+'><option value="">Select...</option>'+opts.map(function(o){return '<option value="'+mneHtmlSafe(o)+'">'+mneHtmlSafe(o)+'</option>'}).join('')+'</select>'}else if(q.type==='checkboxes'){control=(q.options||[]).map(function(o,j){return '<label><input type="checkbox" data-mne-check="'+mneHtmlSafe(q.id)+'" value="'+mneHtmlSafe(o)+'"> '+mneHtmlSafe(o)+'</label>'}).join('<br>')}else{const type=q.type==='number'?'number':q.type==='date'?'date':q.type==='rating'?'number':'text';control='<input id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'" type="'+type+'"'+(q.type==='rating'?' min="1" max="5" step="1"':'')+req+'>'}return '<div class="field" style="margin:12px 0"><label class="label" for="'+id+'">'+(i+1)+'. '+mneHtmlSafe(q.label)+(q.required?' *':'')+'</label>'+(q.helpText?'<div class="small">'+mneHtmlSafe(q.helpText)+'</div>':'')+control+'</div>'}).join('');const card=$('customMneCard');if(card)card.classList.toggle('hidden',!activeVisit||!f)};
+function mneHasAllFormAccess(){return ['ADMIN','ME','STAFF'].indexOf(String(actorRole||'').toUpperCase())>=0;}
+function updateCustomMneCardVisibility(){
+  const card=$('customMneCard'),previewBtn=$('previewCustomMneBtn'),saveBtn=$('saveCustomMneBtn');
+  if(card)card.classList.toggle('hidden',!(mnePublishedForms.length||mneHasAllFormAccess()));
+  const selected=!!(mnePublishedForms.length&&$('customMneFormSelect')&&$('customMneFormSelect').value!=='');
+  if(previewBtn){previewBtn.classList.toggle('hidden',!!activeVisit);previewBtn.disabled=!!activeVisit||!selected;}
+  if(saveBtn){saveBtn.classList.toggle('hidden',!activeVisit||!selected);saveBtn.disabled=!activeVisit||!selected;}
+}
+window.previewCustomMneForm=function(){
+  const sel=$('customMneFormSelect');
+  if(!sel||sel.value===''){setMessage('Select a published form to preview.','warn');return;}
+  if(activeVisit){setMessage('Preview is available before a visit. This active visit remains in completion mode.','warn');return;}
+  renderCustomMneForm();
+  const q=$('customMneQuestions');if(q&&q.scrollIntoView)q.scrollIntoView({behavior:'smooth',block:'start'});
+  const notice=$('customMnePreviewNotice');if(notice){notice.classList.remove('hidden');notice.textContent='Preview mode: read-only. No answers are saved. Start a field visit to enable data entry.';}
+};
+window.renderCustomMneForm=function(){
+  const sel=$('customMneFormSelect'),box=$('customMneQuestions'),desc=$('customMneFormDescription');if(!sel||!box)return;
+  const f=sel.value!==''?mnePublishedForms[Number(sel.value)]:null,previewOnly=!activeVisit;
+  if(!f){box.innerHTML='';if(desc)desc.textContent='';const n=$('customMnePreviewNotice');if(n)n.classList.add('hidden');updateCustomMneCardVisibility();return;}
+  if(desc)desc.textContent=f.description||'';
+  const disabled=previewOnly?' disabled':'';
+  box.innerHTML=(f.questions||[]).map(function(q,i){
+    const id='mneAnswer_'+mneHtmlSafe(q.id),required=q.required&&!previewOnly?' required':'';let control='';
+    if(q.type==='long_text')control='<textarea id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'"'+disabled+required+'></textarea>';
+    else if(q.type==='multiple_choice'||q.type==='dropdown'||q.type==='yes_no'){const opts=q.type==='yes_no'?['Yes','No']:(q.options||[]);control='<select id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'"'+disabled+required+'><option value="">Select...</option>'+opts.map(function(o){return '<option value="'+mneHtmlSafe(o)+'">'+mneHtmlSafe(o)+'</option>'}).join('')+'</select>'}
+    else if(q.type==='checkboxes'){control=(q.options||[]).map(function(o){return '<label><input type="checkbox" data-mne-check="'+mneHtmlSafe(q.id)+'" value="'+mneHtmlSafe(o)+'"'+disabled+'> '+mneHtmlSafe(o)+'</label>'}).join('<br>')}
+    else{const type=q.type==='number'?'number':q.type==='date'?'date':q.type==='rating'?'number':'text';control='<input id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'" type="'+type+'"'+(q.type==='rating'?' min="1" max="5" step="1"':'')+disabled+required+'>'}
+    return '<div class="field" style="margin:12px 0"><label class="label" for="'+id+'">'+(i+1)+'. '+mneHtmlSafe(q.label)+(q.required?' *':'')+'</label>'+(q.helpText?'<div class="small">'+mneHtmlSafe(q.helpText)+'</div>':'')+control+'</div>'
+  }).join('');
+  const notice=$('customMnePreviewNotice');if(notice){notice.classList.toggle('hidden',!previewOnly);if(previewOnly)notice.textContent='Preview mode: read-only. No answers are saved. Start a field visit to enable data entry.';}
+  updateCustomMneCardVisibility();
+};
 window.saveCustomMneForm=async function(){if(!activeVisit){setMessage('Start a GPS-verified visit before submitting an M&E form.','warn');return}const sel=$('customMneFormSelect'),f=mnePublishedForms[Number(sel&&sel.value)];if(!f){setMessage('No published form is selected. Refresh offline data while online.','warn');return}const responses={};for(const q of (f.questions||[])){let v;if(q.type==='checkboxes'){v=Array.from(document.querySelectorAll('[data-mne-check="'+q.id.replace(/"/g,'\\"')+'"]:checked')).map(function(el){return el.value})}else{const el=document.querySelector('[data-mne-answer="'+q.id.replace(/"/g,'\\"')+'"]');v=el?String(el.value||'').trim():''}if(q.required&&(v===''||(Array.isArray(v)&&!v.length))){setMessage('Please answer the required question: '+q.label,'warn');return}responses[q.id]=v}const btn=$('saveCustomMneBtn');if(btn)btn.disabled=true;const payload={visitID:activeVisit.visitID,idempotencyKey:uid('MNE'),mneFormsSyncedAt:activeVisit.mneFormsSyncedAt||'',project:activeVisit.school&&activeVisit.school.project||(String(activeVisit.school&&activeVisit.school.recordType||'').toUpperCase()==='LEARNING_LAB'?'LEARNING_LABS':'CASCADE'),visitType:String(activeVisit.payload&&activeVisit.payload.visitType||$('visitType').value||'ME_VISIT').toUpperCase(),clientSubmittedAt:isoNow(),activityFormData:{customFormId:f.formID,formVersion:f.version,responses:responses},activitySummary:'M&E form: '+f.title,teachersReached:0,learnersReached:0,materialsStatus:'',logisticsSupport:'',issuesIdentified:'',escalationRequired:'NO',followUpAction:'',followUpDate:''};try{await enqueue('FIELD_REPORT',payload);activeVisit.activityReportSaved=true;activeVisit.activityReportType='MNE_CUSTOM';await metaSet('activeVisit',activeVisit);const msg=$('customMneMessage');if(msg){msg.textContent=online()?'Form saved on this device; synchronizing now.':'Form saved offline and will synchronize when connectivity returns.';msg.className='status ok'}if(online())await syncQueue();renderCustomMneForm()}catch(e){setMessage('M&E form could not be saved locally: '+(e.message||e),'bad')}finally{if(btn)btn.disabled=false}};
 
 window.syncQueue=async function(){
@@ -478,7 +509,7 @@ function showActiveVisitFromStorage(v){
   updateSchoolLocationInfo();updateVisitTypeOptions();
   if(v&&v.payload&&v.payload.visitType)$('visitType').value=v.payload.visitType;
   updateVisitTypeOptions();
-  $('activeCard').classList.remove('hidden');$('customMneCard').classList.toggle('hidden',!mnePublishedForms.length);$('visitStatus').textContent='An active visit is saved on this device for '+(v.school&&v.school.school||'the selected school')+'.';$('visitStatus').className='status warn';$('gpsBox').textContent=v.checkIn?'Check-in GPS\nLatitude: '+v.checkIn.latitude+'\nLongitude: '+v.checkIn.longitude+'\nAccuracy: '+Math.round(v.checkIn.accuracy)+' m':'Visit saved offline.';
+  $('activeCard').classList.remove('hidden');renderCustomMneForm();$('visitStatus').textContent='An active visit is saved on this device for '+(v.school&&v.school.school||'the selected school')+'.';$('visitStatus').className='status warn';$('gpsBox').textContent=v.checkIn?'Check-in GPS\nLatitude: '+v.checkIn.latitude+'\nLongitude: '+v.checkIn.longitude+'\nAccuracy: '+Math.round(v.checkIn.accuracy)+' m':'Visit saved offline.';
 }
 
 window.addEventListener('online',async function(){connectionUI();setMessage('Internet restored. Preparing the secure sync connection...','ok');try{if(bridgeUrl&&!parentBridgeAvailable()){bridgeReady=false;setupBridge()}await syncQueue();if(offlineToken)await refreshOfflineData()}catch(_){} });
