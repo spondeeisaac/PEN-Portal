@@ -39,6 +39,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
       <div>
         <h1>PEN Field Visit App</h1>
         <div class="small">Offline-first field visit verification for Master Trainers and Field Support Officers.</div>
+        <div id="projectScopeLabel" class="pill" style="margin-top:7px">Project: verifying…</div>
       </div>
       <div>
         <span id="connectionPill" class="pill">Checking connection...</span>
@@ -69,7 +70,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <label class="label" for="school">Assigned School</label>
     <select id="school"><option value="">Loading schools...</option></select>
     <label class="label" for="visitType">Visit Type</label>
-    <select id="visitType"><option value="ME_VISIT">M&amp;E Field Visit</option></select>
+    <select id="visitType"><option value="">Loading active visit types…</option></select>
     <div class="small">Questionnaires are managed and published by M&amp;E Management. Only the latest published form versions appear below.</div>
     <div id="schoolLocationInfo" class="status" style="margin-top:10px">Select a school to see location readiness.</div>
     <div id="locationCaptureWrap" class="actions hidden">
@@ -87,8 +88,46 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <button id="checkoutBtn" onclick="checkOutVisit()">Check Out &amp; Verify Visit</button>
   </div>
 
+  <div id="fieldObservationCard" class="card hidden">
+    <h2>3. Field Observation &amp; Follow-up</h2>
+    <div class="small">Use this short record to capture the main purpose, what happened, people reached, materials, support needs and agreed follow-up. It is saved to this device first and can synchronize later. Detailed M&amp;E questionnaires are recorded separately below.</div>
+    <label class="label" for="fieldActivitySummary">Activity / observation summary *</label>
+    <textarea id="fieldActivitySummary" placeholder="What did you observe or support during this visit?" required></textarea>
+    <div class="grid">
+      <div><label class="label" for="fieldTeachersReached">Teachers reached (leave blank if not counted)</label><input id="fieldTeachersReached" type="number" min="0" step="1" inputmode="numeric" placeholder="Not recorded"></div>
+      <div><label class="label" for="fieldLearnersReached">Learners reached (leave blank if not counted)</label><input id="fieldLearnersReached" type="number" min="0" step="1" inputmode="numeric" placeholder="Not recorded"></div>
+    </div>
+    <label class="label" for="fieldMaterialsStatus">Materials / resources status</label>
+    <select id="fieldMaterialsStatus"><option value="">Not assessed / not recorded</option><option>Available</option><option>Partly available</option><option>Not available</option><option>Not applicable</option></select>
+    <label class="label" for="fieldLogisticsSupport">Logistics or support provided / needed</label>
+    <textarea id="fieldLogisticsSupport" placeholder="Support provided, equipment, transport, materials, or other logistics"></textarea>
+    <label class="label" for="fieldIssuesIdentified">Issues or risks identified</label>
+    <textarea id="fieldIssuesIdentified" placeholder="Record the issue, location/context, and any immediate action taken"></textarea>
+    <div class="grid">
+      <div><label class="label" for="fieldEscalationRequired">Escalation required?</label><select id="fieldEscalationRequired"><option value="NO">No</option><option value="YES">Yes</option><option value="NOT_ASSESSED">Not assessed</option></select></div>
+      <div><label class="label" for="fieldFollowUpDate">Follow-up date</label><input id="fieldFollowUpDate" type="date"></div>
+    </div>
+    <label class="label" for="fieldFollowUpAction">Agreed follow-up action / owner</label>
+    <textarea id="fieldFollowUpAction" placeholder="What needs to happen next, and who should follow up?"></textarea>
+    <button id="saveFieldObservationBtn" onclick="saveFieldObservation()">Save Field Observation</button>
+    <div id="fieldObservationMessage" class="status" style="margin-top:10px" aria-live="polite">Not saved yet.</div>
+  </div>
+
+  <div id="fieldEvidenceCard" class="card hidden">
+    <h2>4. Photos &amp; Videos</h2>
+    <div class="small">Attach field pictures and short videos here. They are kept on this device when offline and uploaded to Google Drive when you synchronize. Photos: up to 15 MB each. Videos: up to 25 MB each. Attach files before checking out. Drive files remain private and use the PEN Drive account's existing access permissions.</div>
+    <input id="imageEvidenceInput" class="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" capture="environment" multiple onchange="handleEvidenceFiles('IMAGE')">
+    <input id="videoEvidenceInput" class="hidden" type="file" accept="video/mp4,video/webm,video/quicktime,video/3gpp,video/x-msvideo" capture="environment" multiple onchange="handleEvidenceFiles('VIDEO')">
+    <div class="actions" style="margin-top:8px">
+      <button type="button" onclick="chooseEvidenceFiles('IMAGE')">Take / Choose Photos</button>
+      <button type="button" class="secondary" onclick="chooseEvidenceFiles('VIDEO')">Record / Choose Videos</button>
+    </div>
+    <div id="evidenceMessage" class="status" style="margin-top:10px" aria-live="polite">No pictures or videos attached to this visit yet.</div>
+    <div id="evidenceAttachmentList" style="margin-top:8px"></div>
+  </div>
+
   <div id="customMneCard" class="card hidden">
-    <h2>3. M&amp;E Fieldwork Forms</h2>
+    <h2>5. M&amp;E Fieldwork Forms</h2>
     <div class="small">Select any current published form to preview it before a visit. M&amp;E, Admin and Staff can access all published forms; field teams see forms assigned to their role. Drafts are not available for submission.</div>
     <label class="label" for="customMneFormSelect">Select form</label>
     <select id="customMneFormSelect" onchange="renderCustomMneForm()"><option value="">No published forms available</option></select>
@@ -106,7 +145,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <button class="secondary" onclick="syncQueue()">Sync Now</button>
   </div>
 
-  <footer>PEN Field Visit Offline App • Application version 2026.8</footer>
+  <footer>PEN Field Visit Offline App • Build 2026.10.29.2</footer>
 </div>
 
 <iframe id="bridgeFrame" title="PEN secure field bridge" aria-hidden="true"></iframe>
@@ -114,9 +153,9 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.8';
+const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.10.29.2';
 const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026';
-const DB_VERSION=1;
+const DB_VERSION=2;
 const BRIDGE_SOURCE='PEN_FIELD_VISIT_PWA_2026';
 const DEFAULT_BRIDGE_URL='';
 const p=new URLSearchParams(location.search);
@@ -128,11 +167,16 @@ let normalToken=p.get('token')||'';
 let schools=[];
 let activeVisit=null;
 let actorRole="";
+let projectID=p.get('projectID')||'';
+let projectName='';
+let configuredVisitTypes=[];
 let deferredInstallPrompt=null;
 let dbPromise=null;
 let bridgeReady=false;
 const bridgePending={};
 let syncRunning=false;
+let fieldDraftTimer=null;
+let mneDraftTimer=null;
 
 function $(id){return document.getElementById(id)}
 function uid(prefix){
@@ -154,6 +198,7 @@ function idbOpen(){
       if(!db.objectStoreNames.contains('meta'))db.createObjectStore('meta',{keyPath:'key'});
       if(!db.objectStoreNames.contains('schools'))db.createObjectStore('schools',{keyPath:'schoolKey'});
       if(!db.objectStoreNames.contains('queue'))db.createObjectStore('queue',{keyPath:'id'});
+      if(!db.objectStoreNames.contains('media'))db.createObjectStore('media',{keyPath:'id'});
     };
     req.onsuccess=function(){resolve(req.result)};req.onerror=function(){reject(req.error||new Error('Unable to open offline storage.'))};
   });
@@ -219,6 +264,11 @@ async function saveBundle(bundle){
   for(const s of existing){if(!newKeys[s.schoolKey])await idbDelete('schools',s.schoolKey)}
   for(const s of schools)await idbPut('schools',s);
   const mneForms=Array.isArray(bundle.forms)?bundle.forms:[];
+  projectID=String(bundle.projectID||bundle.actor&&bundle.actor.projectID||projectID||'');
+  projectName=String(bundle.projectName||bundle.actor&&bundle.actor.projectName||'');
+  configuredVisitTypes=Array.isArray(bundle.visitTypes)?bundle.visitTypes:[];
+  const scopeLabel=$('projectScopeLabel');if(scopeLabel)scopeLabel.textContent='Project: '+(projectName||projectID||'Not verified');
+  await metaSet('projectID',projectID);await metaSet('projectName',projectName);await metaSet('visitTypes',configuredVisitTypes);
   // Do not replace the active visit's form snapshot mid-visit; this protects answers
   // and keeps the version used by an offline submission stable. Refresh after checkout.
   if(!activeVisit){
@@ -238,11 +288,14 @@ async function loadSchoolsFromDB(){schools=await idbAll('schools');schools.sort(
 function selectedSchool(){const v=$('school').value;return schools.find(s=>String(s.schoolKey)===String(v))||null}
 function updateVisitTypeOptions(){
   const sel=$("visitType");if(!sel)return;
-  // Visit tracking (GPS, check-in and check-out) is fixed system behaviour.
-  // Questionnaire fields are loaded dynamically from the M&E Form Registry.
+  const previous=sel.value;
   sel.innerHTML='';
-  const option=document.createElement('option');option.value='ME_VISIT';option.textContent='M&E Field Visit';sel.appendChild(option);
-  sel.value='ME_VISIT';
+  let visible=(Array.isArray(configuredVisitTypes)?configuredVisitTypes:[]).filter(function(v){return String(v.status||'ACTIVE').toUpperCase()==='ACTIVE'&&(!projectID||(Array.isArray(v.projectIDs)&&v.projectIDs.indexOf(projectID)>=0));});
+  if(activeVisit&&activeVisit.payload&&activeVisit.payload.visitTypeID&&!visible.some(function(v){return String(v.visitTypeID)===String(activeVisit.payload.visitTypeID);}))visible.push({visitTypeID:activeVisit.payload.visitTypeID,name:activeVisit.payload.visitType||'Existing visit type',status:'INACTIVE',projectIDs:[projectID]});
+  if(!visible.length){const empty=document.createElement('option');empty.value='';empty.textContent='No active visit types for '+(projectName||'this project')+' — refresh online or contact M&E';sel.appendChild(empty);sel.value='';sel.disabled=!!activeVisit;updateCustomMneCardVisibility();return;}
+  visible.forEach(function(v){const option=document.createElement('option');option.value=String(v.visitTypeID||v.name||'');option.textContent=String(v.name||v.visitTypeID||'Visit');sel.appendChild(option)});
+  if(previous&&Array.from(sel.options).some(function(o){return o.value===previous}))sel.value=previous;else sel.selectedIndex=0;
+  sel.disabled=!!activeVisit;
   updateCustomMneCardVisibility();
 }
 
@@ -276,7 +329,18 @@ function connectionUI(){
 async function renderQueue(){
   const q=await idbAll('queue');
   q.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
-  $('pendingCount').textContent=String(q.length);$('queueInfo').textContent=q.length?q.length+' pending action(s) waiting for internet sync.':'No pending offline records.';
+  const media=await idbAll('media');
+  const pendingMedia=media.filter(function(item){return String(item.status||'PENDING')!=='UPLOADED'});
+  $('pendingCount').textContent=String(q.length+pendingMedia.length);
+  const failed=q.filter(function(item){return !!String(item.lastError||'').trim()});
+  const failedMedia=pendingMedia.filter(function(item){return !!String(item.lastError||'').trim()});
+  let parts=[];
+  if(q.length)parts.push(q.length+' pending field action(s)');
+  if(pendingMedia.length)parts.push(pendingMedia.length+' picture/video file(s) awaiting Google Drive upload');
+  let text=parts.length?parts.join(' and ')+'.':'No pending field records or evidence files.';
+  if(failed.length){const item=failed[failed.length-1];text+=' Last record error ('+String(item.action||'record')+'): '+String(item.lastError||'Synchronization failed.').slice(0,180)+'.';}
+  if(failedMedia.length){const item=failedMedia[failedMedia.length-1];text+=' Last Drive upload error ('+String(item.fileName||'evidence')+'): '+String(item.lastError||'Upload failed.').slice(0,180)+'. Retry while online; the local file has been retained.';}
+  $('queueInfo').textContent=text;
 }
 function updateExpiry(v){$('expiry').textContent=v?fmt(v):'—'}
 async function refreshMeta(){const exp=await metaGet('offlineExpiresAt');updateExpiry(exp);const last=await metaGet('lastSync');$('lastSync').textContent=last?fmt(last):'Never';await renderQueue()}
@@ -286,7 +350,123 @@ async function enqueue(action,payload){
   await idbPut('queue',item);await renderQueue();
   return item;
 }
+async function pendingVisitTypeIDs(){
+  const q=await idbAll('queue'),ids=[];
+  q.forEach(function(item){if(String(item.action||'').toUpperCase()!=='CHECK_IN')return;const id=String(item.payload&&item.payload.visitTypeID||'').trim();if(id&&ids.indexOf(id)<0)ids.push(id)});
+  return ids;
+}
 async function removeQueue(ids){for(const id of ids)await idbDelete('queue',id);await renderQueue()}
+
+function chooseEvidenceFiles(kind){
+  if(!activeVisit){setMessage('Start a field visit before attaching pictures or videos.','warn');return;}
+  const input=$(String(kind).toUpperCase()==='VIDEO'?'videoEvidenceInput':'imageEvidenceInput');
+  if(input)input.click();
+}
+function evidenceMime(file,kind){
+  const typed=String(file&&file.type||'').toLowerCase();
+  if(typed.indexOf('image/')===0&&['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif'].indexOf(typed)>=0)return typed;
+  if(typed.indexOf('video/')===0&&['video/mp4','video/webm','video/quicktime','video/3gpp','video/x-msvideo'].indexOf(typed)>=0)return typed;
+  const name=String(file&&file.name||'').toLowerCase();
+  const ext=name.split('.').pop();
+  const map={jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',gif:'image/gif',heic:'image/heic',heif:'image/heif',mp4:'video/mp4',webm:'video/webm',mov:'video/quicktime','3gp':'video/3gpp',avi:'video/x-msvideo'};
+  return map[ext]||'';
+}
+window.handleEvidenceFiles=async function(kind){
+  const input=$(String(kind).toUpperCase()==='VIDEO'?'videoEvidenceInput':'imageEvidenceInput');
+  const files=Array.from(input&&input.files||[]);
+  if(!files.length)return;
+  if(!activeVisit){setMessage('Start a field visit before attaching pictures or videos.','warn');input.value='';return;}
+  try{
+    const existing=(await idbAll('media')).filter(function(m){return String(m.visitID||'')===String(activeVisit.visitID)});
+    if(existing.length+files.length>30)throw new Error('A maximum of 30 picture/video attachments is allowed per visit.');
+    const totalPending=existing.filter(function(m){return String(m.status||'PENDING')!=='UPLOADED'}).reduce(function(sum,m){return sum+Number(m.sizeBytes||0)},0);
+    const prepared=[];let batchBytes=0;
+    for(const file of files){
+      const mime=evidenceMime(file,kind);
+      if(!mime)throw new Error('Unsupported file type: '+String(file.name||'unnamed file')+'. Select a supported image or video.');
+      if(!file.size)throw new Error('The selected file is empty: '+String(file.name||'unnamed file'));
+      const isImage=mime.indexOf('image/')===0;
+      const max=isImage?15*1024*1024:25*1024*1024;
+      if(file.size>max)throw new Error(String(file.name||'File')+' is larger than the '+(isImage?'15 MB photo':'25 MB video')+' limit. Compress or shorten it, then select it again.');
+      batchBytes+=file.size;
+      prepared.push({file:file,mime:mime,isImage:isImage});
+    }
+    if(totalPending+batchBytes>75*1024*1024)throw new Error('The pending attachment total for this visit would exceed 75 MB. Upload pending files while online before adding more.');
+    for(const part of prepared){
+      const file=part.file,record={
+        id:uid('FVUP'),evidenceID:uid('EVID'),uploadID:'',visitID:String(activeVisit.visitID),
+        projectID:String(projectID||''),projectName:String(projectName||''),
+        visitTypeID:String(activeVisit.payload&&activeVisit.payload.visitTypeID||''),
+        schoolKey:String(activeVisit.school&&activeVisit.school.schoolKey||''),
+        school:String(activeVisit.school&&activeVisit.school.school||''),county:String(activeVisit.school&&activeVisit.school.county||''),
+        fileName:String(file.name||'field-evidence'),mimeType:part.mime,sizeBytes:Number(file.size),blob:file,
+        evidenceType:part.isImage?'IMAGE':'VIDEO',capturedAt:isoNow(),latitude:'',longitude:'',gpsAccuracy:'',
+        notes:'Attached from PEN Field Visit App. GPS coordinates are recorded separately with the field visit.',
+        status:'PENDING',createdAt:isoNow(),uploadedAt:'',driveUrl:'',driveFileId:'',lastError:''
+      };
+      record.uploadID=record.id;
+      await idbPut('media',record);
+    }
+    if(input)input.value='';
+    await renderEvidenceAttachments();await renderQueue();
+    const e=$('evidenceMessage');if(e){e.textContent+='. '+(online()?'Uploading to Google Drive now…':'Files are saved on this device and will upload to Google Drive when internet returns.');e.className='status '+(online()?'':'warn');}
+    if(online())await syncQueue();
+  }catch(err){setMessage('Evidence files were not all added: '+(err&&err.message?err.message:err),'bad');try{await renderEvidenceAttachments();await renderQueue();}catch(_){} }
+  finally{if(input)input.value='';}
+};
+async function renderEvidenceAttachments(){
+  const wrap=$('evidenceAttachmentList');if(!wrap)return;
+  const all=(await idbAll('media')).filter(function(m){return activeVisit&&String(m.visitID||'')===String(activeVisit.visitID)}).sort(function(a,b){return String(a.createdAt||'').localeCompare(String(b.createdAt||''))});
+  wrap.innerHTML='';
+  if(!all.length){const empty=document.createElement('div');empty.className='small';empty.textContent='No pictures or videos attached to this visit yet.';wrap.appendChild(empty);return;}
+  all.forEach(function(m){
+    const item=document.createElement('div');item.style.cssText='border:1px solid var(--line);border-radius:9px;padding:10px;margin:7px 0;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap';
+    const name=document.createElement('div');name.style.cssText='min-width:0;flex:1';
+    const strong=document.createElement('strong');strong.textContent=m.fileName||'Evidence file';strong.style.cssText='display:block;overflow-wrap:anywhere;font-size:13px';
+    const detail=document.createElement('div');detail.className='small';detail.textContent=(m.evidenceType||'FILE')+' · '+(Number(m.sizeBytes||0)/1024/1024).toFixed(1)+' MB · '+(m.status==='UPLOADED'?'Uploaded to Google Drive':(m.lastError?'Upload needs retry':'Saved on this device'));
+    name.appendChild(strong);name.appendChild(detail);item.appendChild(name);
+    if(m.status==='UPLOADED'&&m.driveUrl){const link=document.createElement('a');link.href=m.driveUrl;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Open in Drive';link.style.cssText='font-size:13px;font-weight:700;color:#007a7a';item.appendChild(link);}
+    wrap.appendChild(item);
+  });
+  const pending=all.filter(function(m){return m.status!=='UPLOADED'}).length;
+  const msg=$('evidenceMessage');if(msg){msg.textContent=all.length+' attachment(s) for this visit. '+pending+' still need Google Drive upload.';msg.className='status '+(pending?'warn':'ok');}
+}
+function bytesToBase64(arrayBuffer){
+  const bytes=new Uint8Array(arrayBuffer);let binary='';const step=0x8000;
+  for(let i=0;i<bytes.length;i+=step)binary+=String.fromCharCode.apply(null,bytes.subarray(i,Math.min(i+step,bytes.length)));
+  return btoa(binary);
+}
+function evidenceUploadMeta(m){
+  return {uploadID:m.uploadID||m.id,evidenceID:m.evidenceID||m.id,visitID:m.visitID,projectID:m.projectID,projectName:m.projectName,visitTypeID:m.visitTypeID,schoolKey:m.schoolKey,fileName:m.fileName,mimeType:m.mimeType,sizeBytes:Number(m.sizeBytes),totalChunks:Math.ceil(Number(m.sizeBytes)/(512*1024)),capturedAt:m.capturedAt,latitude:m.latitude,longitude:m.longitude,gpsAccuracy:m.gpsAccuracy,notes:m.notes||''};
+}
+async function syncEvidenceQueue(){
+  if(!online()||!offlineToken)return {uploaded:0,failed:0};
+  const all=(await idbAll('media')).filter(function(m){return String(m.status||'PENDING')!=='UPLOADED'&&m.blob});
+  all.sort(function(a,b){return String(a.createdAt||'').localeCompare(String(b.createdAt||''))});
+  let uploaded=0,failed=0;
+  for(const original of all){
+    let m=await idbGet('media',original.id);if(!m||m.status==='UPLOADED'||!m.blob)continue;
+    try{
+      if(Number(m.sizeBytes)>25*1024*1024)throw new Error('File exceeds the 25 MB upload limit.');
+      m.status='UPLOADING';m.lastError='';await idbPut('media',m);await renderQueue();await renderEvidenceAttachments();
+      const meta=evidenceUploadMeta(m),chunkSize=512*1024,total=meta.totalChunks;
+      for(let i=0;i<total;i++){
+        const part=m.blob.slice(i*chunkSize,Math.min((i+1)*chunkSize,m.sizeBytes));
+        const b64=bytesToBase64(await part.arrayBuffer());
+        await bridgeCall('EVIDENCE_CHUNK',[offlineToken,meta,i,b64]);
+        m.lastChunkUploaded=i+1;
+        if(i===total-1||i%5===4){m.status='UPLOADING';await idbPut('media',m);setMessage('Uploading '+m.fileName+' to Google Drive ('+(i+1)+'/'+total+' chunks)…','');}
+      }
+      const result=await bridgeCall('EVIDENCE_FINALIZE',[offlineToken,meta]);
+      if(!result||!result.success||!result.fileId||!result.driveUrl)throw new Error('Google Drive did not confirm the uploaded file.');
+      m.status='UPLOADED';m.driveFileId=result.fileId;m.driveUrl=result.driveUrl;m.uploadedAt=isoNow();m.lastError='';m.blob=null;m.lastChunkUploaded=total;await idbPut('media',m);uploaded++;
+      await renderEvidenceAttachments();await renderQueue();
+    }catch(e){
+      m=await idbGet('media',original.id)||m;m.status='PENDING';m.lastError=String(e&&e.message?e.message:e).slice(0,500);await idbPut('media',m);failed++;await renderEvidenceAttachments();await renderQueue();
+    }
+  }
+  return {uploaded:uploaded,failed:failed};
+}
 
 function haversine(lat1,lng1,lat2,lng2){
   const R=6371000,p1=Number(lat1)*Math.PI/180,p2=Number(lat2)*Math.PI/180,dp=(Number(lat2)-Number(lat1))*Math.PI/180,dl=(Number(lng2)-Number(lng1))*Math.PI/180;
@@ -328,6 +508,8 @@ window.captureSchoolLocation=async function(){
 
 window.startVisit=async function(){
   const s=selectedSchool();if(!s){setMessage('Please select a school first.','warn');return}
+  if(!$('visitType').value){setMessage('No active visit type is configured for '+(projectName||'this project')+'. Refresh offline data while online or ask M&E to activate a visit type.', 'warn');return}
+  if(!projectID||!projectName){setMessage('The project scope is not verified. Open this app from the PEN Portal while online before recording field visits.','bad');return}
   if(activeVisit){setMessage('There is already an active visit on this device. Complete or clear it before starting another.','warn');return}
   $('startBtn').disabled=true;
   try{
@@ -335,11 +517,11 @@ window.startVisit=async function(){
     const gps=await captureGPS();
     const verification=localVerify(gps,s);
     const visitID=uid('VISIT');
-    const payload={action:'CHECK_IN',visitID:visitID,idempotencyKey:visitID,schoolKey:s.schoolKey,school:s.school,county:s.county,district:s.district,visitType:$('visitType').value,project:s.project||(String(s.recordType||'').toUpperCase()==='LEARNING_LAB'?'LEARNING_LABS':'CASCADE'),recordType:s.recordType||'CASCADE_SCHOOL',schoolLatitude:s.latitude,schoolLongitude:s.longitude,radiusMeters:s.radiusMeters||150,latitude:gps.latitude,longitude:gps.longitude,accuracy:gps.accuracy,offlineCreated:!online(),capturedAt:gps.capturedAt,notes:''};
+    const payload={action:'CHECK_IN',visitID:visitID,idempotencyKey:visitID,schoolKey:s.schoolKey,school:s.school,county:s.county,district:s.district,visitType:(configuredVisitTypes.find(function(v){return String(v.visitTypeID||v.name||'')===String($('visitType').value);})||{}).name||$('visitType').value,visitTypeID:$('visitType').value,projectID:projectID,projectName:projectName,project:s.project||(String(s.recordType||'').toUpperCase()==='LEARNING_LAB'?'LEARNING_LABS':'CASCADE'),recordType:s.recordType||'CASCADE_SCHOOL',schoolLatitude:s.latitude,schoolLongitude:s.longitude,radiusMeters:s.radiusMeters||150,latitude:gps.latitude,longitude:gps.longitude,accuracy:gps.accuracy,offlineCreated:!online(),capturedAt:gps.capturedAt,notes:''};
     await enqueue('CHECK_IN',payload);
     activeVisit={visitID:visitID,school:s,pending:true,payload:payload,checkIn:gps,activityFormVersion:'2026.7',mneFormsSyncedAt:(await metaGet('mneFormsSyncedAt'))||'',activityReportSaved:false};await metaSet('activeVisit',activeVisit);
     $('visitType').disabled=true;
-    $('activeCard').classList.remove('hidden');updateVisitTypeOptions();renderCustomMneForm();
+    $('activeCard').classList.remove('hidden');$('fieldObservationCard').classList.remove('hidden');$('fieldEvidenceCard').classList.remove('hidden');resetFieldObservationForm();updateVisitTypeOptions();renderCustomMneForm();renderEvidenceAttachments();
     $('visitStatus').textContent='Visit saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');
     $('visitStatus').className='status '+(verification.status==='VERIFIED'||verification.status==='VERIFIED_LOW_ACCURACY'?'':'warn');
     $('gpsBox').textContent='Check-in GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
@@ -348,8 +530,60 @@ window.startVisit=async function(){
   }catch(e){$('startBtn').disabled=false;setMessage('Visit could not be started: '+(e.message||e),'bad')}
 };
 
+function fieldObservationValuesFromUI(){
+  return {activitySummary:String($('fieldActivitySummary').value||''),teachersReached:String($('fieldTeachersReached').value||''),learnersReached:String($('fieldLearnersReached').value||''),materialsStatus:String($('fieldMaterialsStatus').value||''),logisticsSupport:String($('fieldLogisticsSupport').value||''),issuesIdentified:String($('fieldIssuesIdentified').value||''),escalationRequired:String($('fieldEscalationRequired').value||'NO'),followUpAction:String($('fieldFollowUpAction').value||''),followUpDate:String($('fieldFollowUpDate').value||'')};
+}
+function scheduleFieldObservationDraftSave(){
+  if(!activeVisit||activeVisit.fieldObservationSaved)return;
+  if(fieldDraftTimer)clearTimeout(fieldDraftTimer);
+  fieldDraftTimer=setTimeout(function(){activeVisit.fieldObservationDraft=fieldObservationValuesFromUI();activeVisit.notesDraft=String($('notes').value||'');metaSet('activeVisit',activeVisit).catch(function(e){setMessage('Local draft could not be saved: '+(e&&e.message?e.message:e),'bad')})},180);
+}
+function collectMneDraftResponses(f){
+  const responses={};(f.questions||[]).forEach(function(q){if(q.type==='checkboxes'){responses[q.id]=Array.from(document.querySelectorAll('[data-mne-check="'+q.id.replace(/"/g,'\"')+'"]:checked')).map(function(el){return el.value})}else{const el=document.querySelector('[data-mne-answer="'+q.id.replace(/"/g,'\"')+'"]');responses[q.id]=el?String(el.value||''):''}});return responses;
+}
+function scheduleMneDraftSave(f){
+  if(!activeVisit||!f)return;
+  if(mneDraftTimer)clearTimeout(mneDraftTimer);
+  mneDraftTimer=setTimeout(function(){const draft={formID:f.formID,version:f.version,responses:collectMneDraftResponses(f),updatedAt:isoNow()};const key=mneSubmissionKey(f);activeVisit.mneDrafts=activeVisit.mneDrafts&&typeof activeVisit.mneDrafts==='object'?activeVisit.mneDrafts:{};activeVisit.mneDrafts[key]=draft;activeVisit.mneDraft=draft;metaSet('activeVisit',activeVisit).catch(function(e){setMessage('M&E draft could not be saved locally: '+(e&&e.message?e.message:e),'bad')})},180);
+}
+function mneSubmissionKey(f){return f?String(f.formID)+'|'+String(f.version):''}
+async function reconcileQueuedMneSubmissions(v){
+  if(!v||!v.visitID)return;
+  const q=await idbAll('queue');v.mneFormSubmissions=Array.isArray(v.mneFormSubmissions)?v.mneFormSubmissions:[];
+  q.forEach(function(item){const p=item&&item.payload||{},d=p.activityFormData||{};if(String(item.action||'').toUpperCase()==='FIELD_REPORT'&&String(p.visitID||'')===String(v.visitID)&&d.customFormId&&d.formVersion!=null){const k=mneSubmissionKey({formID:d.customFormId,version:d.formVersion});if(v.mneFormSubmissions.indexOf(k)<0)v.mneFormSubmissions.push(k);}});
+  await metaSet('activeVisit',v);
+}
+function resetFieldObservationForm(){
+  if(fieldDraftTimer)clearTimeout(fieldDraftTimer);if($('notes'))$('notes').value='';
+  ['fieldActivitySummary','fieldTeachersReached','fieldLearnersReached','fieldLogisticsSupport','fieldIssuesIdentified','fieldFollowUpAction','fieldFollowUpDate'].forEach(function(id){const el=$(id);if(el)el.value=''});
+  if($('fieldMaterialsStatus'))$('fieldMaterialsStatus').value='';if($('fieldEscalationRequired'))$('fieldEscalationRequired').value='NO';
+  if($('saveFieldObservationBtn')){$('saveFieldObservationBtn').disabled=false;$('saveFieldObservationBtn').textContent='Save Field Observation'}
+  if($('fieldObservationMessage')){$('fieldObservationMessage').textContent='Not saved yet.';$('fieldObservationMessage').className='status'}
+}
+function restoreFieldObservationForm(v){
+  const r=v&&(v.fieldObservation||v.fieldObservationDraft);if(!r)return;
+  const values={fieldActivitySummary:r.activitySummary,fieldTeachersReached:r.teachersReached,fieldLearnersReached:r.learnersReached,fieldMaterialsStatus:r.materialsStatus,fieldLogisticsSupport:r.logisticsSupport,fieldIssuesIdentified:r.issuesIdentified,fieldEscalationRequired:r.escalationRequired,fieldFollowUpDate:r.followUpDate,fieldFollowUpAction:r.followUpAction};
+  Object.keys(values).forEach(function(id){const el=$(id);if(el&&values[id]!=null)el.value=values[id]});
+  if(!v.fieldObservationSaved){const m=$('fieldObservationMessage');if(m){m.textContent='Local draft restored. Select Save Field Observation to place it in the sync queue.';m.className='status warn'}}
+  if(v.fieldObservationSaved){const b=$('saveFieldObservationBtn');if(b){b.disabled=true;b.textContent='Field Observation Saved'}const m=$('fieldObservationMessage');if(m){m.textContent='This visit’s field observation is saved locally and queued/synchronized. The saved record is protected from duplicate submission.';m.className='status ok'}}
+}
+window.saveFieldObservation=async function(){
+  if(!activeVisit){setMessage('Start a field visit before saving an observation.','warn');return}
+  if(activeVisit.fieldObservationSaved){setMessage('A field observation is already saved for this visit. Its queued record will retry synchronization if needed.','warn');return}
+  const summary=String($('fieldActivitySummary').value||'').trim();if(!summary){setMessage('Enter the activity / observation summary before saving.','warn');$('fieldActivitySummary').focus();return}
+  const numeric=function(id){const raw=String($(id).value||'').trim();if(!raw)return '';const n=Number(raw);if(!Number.isFinite(n)||n<0||Math.floor(n)!==n)throw new Error('People reached must be a non-negative whole number.');return n};
+  let teachers,learners;try{teachers=numeric('fieldTeachersReached');learners=numeric('fieldLearnersReached')}catch(e){setMessage(e.message,'warn');return}
+  const rec={activitySummary:summary,teachersReached:teachers,learnersReached:learners,materialsStatus:$('fieldMaterialsStatus').value||'',logisticsSupport:$('fieldLogisticsSupport').value||'',issuesIdentified:$('fieldIssuesIdentified').value||'',escalationRequired:$('fieldEscalationRequired').value||'NO',followUpAction:$('fieldFollowUpAction').value||'',followUpDate:$('fieldFollowUpDate').value||''};
+  const payload={visitID:activeVisit.visitID,idempotencyKey:activeVisit.visitID+':FIELD_OBSERVATION',projectID:projectID,projectName:projectName,visitType:activeVisit.payload&&activeVisit.payload.visitType||'',visitTypeID:activeVisit.payload&&activeVisit.payload.visitTypeID||'',clientSubmittedAt:isoNow(),activitySummary:rec.activitySummary,teachersReached:rec.teachersReached,learnersReached:rec.learnersReached,materialsStatus:rec.materialsStatus,logisticsSupport:rec.logisticsSupport,issuesIdentified:rec.issuesIdentified,escalationRequired:rec.escalationRequired,followUpAction:rec.followUpAction,followUpDate:rec.followUpDate};
+  const b=$('saveFieldObservationBtn');if(b){b.disabled=true;b.textContent='Saving locally…'}
+  try{await enqueue('FIELD_REPORT',payload);activeVisit.fieldObservationSaved=true;activeVisit.fieldObservation=rec;delete activeVisit.fieldObservationDraft;if(fieldDraftTimer)clearTimeout(fieldDraftTimer);await metaSet('activeVisit',activeVisit);const msg=$('fieldObservationMessage');if(msg){msg.textContent=online()?'Observation saved on this device and queued for synchronization.':'Observation saved offline. It will synchronize when internet returns.';msg.className='status ok'}if(b)b.textContent='Field Observation Saved';if(online())await syncQueue()}
+  catch(e){if(b){b.disabled=false;b.textContent='Save Field Observation'}setMessage('The observation was not saved: '+(e.message||e),'bad')}
+};
+
 window.checkOutVisit=async function(){
   if(!activeVisit){setMessage('There is no active visit.','warn');return}
+  const draft=activeVisit.fieldObservationDraft||{};const hasObservationDraft=Object.keys(draft).some(function(k){return String(draft[k]||'').trim()!=='';});if(hasObservationDraft&&!activeVisit.fieldObservationSaved){setMessage('You have an unsaved field observation draft. Save it before checking out, or clear the draft fields first.','warn');$('fieldObservationCard').scrollIntoView({behavior:'smooth',block:'start'});return}
+  const mneDrafts=activeVisit.mneDrafts&&typeof activeVisit.mneDrafts==='object'?activeVisit.mneDrafts:{};const unsavedMneDraft=Object.keys(mneDrafts).map(function(k){return mneDrafts[k]}).concat(activeVisit.mneDraft?[activeVisit.mneDraft]:[]).find(function(d){return mneDraftHasAnswers(d)&&(!Array.isArray(activeVisit.mneFormSubmissions)||activeVisit.mneFormSubmissions.indexOf(mneSubmissionKey(d))<0)});if(unsavedMneDraft){const formIndex=mnePublishedForms.findIndex(function(f){return mneSubmissionKey(f)===mneSubmissionKey(unsavedMneDraft)});if(formIndex>=0)$('customMneFormSelect').value=String(formIndex);renderCustomMneForm();setMessage('You have unsaved answers in an M&E form. Save that form before checking out, or clear those answers first.','warn');$('customMneCard').scrollIntoView({behavior:'smooth',block:'start'});return}
   const activeType=String(activeVisit.payload&&activeVisit.payload.visitType||$('visitType').value||'').toUpperCase();
   if(activeVisit.activityFormVersion==='2026.4'&&activeType!=='ME_VISIT'&&!activeVisit.activityReportSaved){setMessage('Save the selected activity form before checking out. The form is saved on this device first and can synchronize later. M&E visits are exempt until the approved M&E form is provided.','warn');return}
   $('checkoutBtn').disabled=true;
@@ -362,7 +596,7 @@ window.checkOutVisit=async function(){
     $('visitStatus').textContent='Check-out saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');
     $('visitStatus').className='status '+(verification.status==='VERIFIED'||verification.status==='VERIFIED_LOW_ACCURACY'?'':'warn');
     $('gpsBox').textContent+='\n\nCheck-out GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
-    $('checkoutBtn').disabled=true;await metaSet('activeVisit',null);activeVisit=null;$('visitType').disabled=false;renderCustomMneForm();setMessage(online()?'Check-out saved and will synchronize now.':'Check-out saved offline.','ok');
+    $('checkoutBtn').disabled=true;await metaSet('activeVisit',null);activeVisit=null;$('visitType').disabled=false;$('fieldObservationCard').classList.add('hidden');$('fieldEvidenceCard').classList.add('hidden');renderCustomMneForm();setMessage(online()?'Check-out saved and will synchronize now.':'Check-out saved offline. Any attached files remain on this device and will upload to Drive when connectivity returns.','ok');
     if(online()){await syncQueue();await window.refreshPublishedMneForms(true)}
   }catch(e){$('checkoutBtn').disabled=false;setMessage('Check-out could not be completed: '+(e.message||e),'bad')}
 };
@@ -385,8 +619,9 @@ function updateCustomMneCardVisibility(){
   const card=$('customMneCard'),previewBtn=$('previewCustomMneBtn'),saveBtn=$('saveCustomMneBtn');
   if(card)card.classList.toggle('hidden',!(mnePublishedForms.length||mneHasAllFormAccess()));
   const selected=!!(mnePublishedForms.length&&$('customMneFormSelect')&&$('customMneFormSelect').value!=='');
+  const selectedForm=selected?mnePublishedForms[Number($('customMneFormSelect').value)]:null;const submitted=!!(activeVisit&&selectedForm&&Array.isArray(activeVisit.mneFormSubmissions)&&activeVisit.mneFormSubmissions.indexOf(mneSubmissionKey(selectedForm))>=0);
   if(previewBtn){previewBtn.classList.toggle('hidden',!!activeVisit);previewBtn.disabled=!!activeVisit||!selected;}
-  if(saveBtn){saveBtn.classList.toggle('hidden',!activeVisit||!selected);saveBtn.disabled=!activeVisit||!selected;}
+  if(saveBtn){saveBtn.classList.toggle('hidden',!activeVisit||!selected);saveBtn.disabled=!activeVisit||!selected||submitted;saveBtn.textContent=submitted?'Form Saved':'Save M&E Form';}
 }
 window.previewCustomMneForm=function(){
   const sel=$('customMneFormSelect');
@@ -396,24 +631,83 @@ window.previewCustomMneForm=function(){
   const q=$('customMneQuestions');if(q&&q.scrollIntoView)q.scrollIntoView({behavior:'smooth',block:'start'});
   const notice=$('customMnePreviewNotice');if(notice){notice.classList.remove('hidden');notice.textContent='Preview mode: read-only. No answers are saved. Start a field visit to enable data entry.';}
 };
+function mneDraftForForm(f){
+  if(!activeVisit||!f)return null;
+  const key=mneSubmissionKey(f),drafts=activeVisit.mneDrafts&&typeof activeVisit.mneDrafts==='object'?activeVisit.mneDrafts:{};
+  if(drafts[key])return drafts[key];
+  const legacy=activeVisit.mneDraft;
+  return legacy&&String(legacy.formID)===String(f.formID)&&Number(legacy.version)===Number(f.version)?legacy:null;
+}
+function mneDraftHasAnswers(draft){
+  const responses=draft&&draft.responses&&typeof draft.responses==='object'?draft.responses:{};
+  return Object.keys(responses).some(function(k){const v=responses[k];return Array.isArray(v)?v.length>0:String(v==null?'':v).trim()!=='';});
+}
+function restoreMneDraftIntoForm(f){
+  const draft=mneDraftForForm(f);if(!draft||!draft.responses)return;
+  Object.keys(draft.responses).forEach(function(qid){
+    const value=draft.responses[qid];
+    const el=document.querySelector('[data-mne-answer="'+String(qid)+'"]');
+    if(el&&value!=null)el.value=Array.isArray(value)?value.join(', '):String(value);
+    if(Array.isArray(value))document.querySelectorAll('[data-mne-check="'+String(qid)+'"]').forEach(function(cb){cb.checked=value.indexOf(cb.value)>=0;});
+  });
+}
 window.renderCustomMneForm=function(){
   const sel=$('customMneFormSelect'),box=$('customMneQuestions'),desc=$('customMneFormDescription');if(!sel||!box)return;
   const f=sel.value!==''?mnePublishedForms[Number(sel.value)]:null,previewOnly=!activeVisit;
   if(!f){box.innerHTML='';if(desc)desc.textContent='';const n=$('customMnePreviewNotice');if(n)n.classList.add('hidden');updateCustomMneCardVisibility();return;}
   if(desc)desc.textContent=f.description||'';
-  const disabled=previewOnly?' disabled':'';
+  const submitted=!!(activeVisit&&Array.isArray(activeVisit.mneFormSubmissions)&&activeVisit.mneFormSubmissions.indexOf(mneSubmissionKey(f))>=0);
+  const disabled=(previewOnly||submitted)?' disabled':'';
   box.innerHTML=(f.questions||[]).map(function(q,i){
-    const id='mneAnswer_'+mneHtmlSafe(q.id),required=q.required&&!previewOnly?' required':'';let control='';
+    const id='mneAnswer_'+mneHtmlSafe(q.id),required=q.required&&!previewOnly&&!submitted?' required':'';let control='';
     if(q.type==='long_text')control='<textarea id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'"'+disabled+required+'></textarea>';
-    else if(q.type==='multiple_choice'||q.type==='dropdown'||q.type==='yes_no'){const opts=q.type==='yes_no'?['Yes','No']:(q.options||[]);control='<select id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'"'+disabled+required+'><option value="">Select...</option>'+opts.map(function(o){return '<option value="'+mneHtmlSafe(o)+'">'+mneHtmlSafe(o)+'</option>'}).join('')+'</select>'}
-    else if(q.type==='checkboxes'){control=(q.options||[]).map(function(o){return '<label><input type="checkbox" data-mne-check="'+mneHtmlSafe(q.id)+'" value="'+mneHtmlSafe(o)+'"'+disabled+'> '+mneHtmlSafe(o)+'</label>'}).join('<br>')}
-    else{const type=q.type==='number'?'number':q.type==='date'?'date':q.type==='rating'?'number':'text';control='<input id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'" type="'+type+'"'+(q.type==='rating'?' min="1" max="5" step="1"':'')+disabled+required+'>'}
-    return '<div class="field" style="margin:12px 0"><label class="label" for="'+id+'">'+(i+1)+'. '+mneHtmlSafe(q.label)+(q.required?' *':'')+'</label>'+(q.helpText?'<div class="small">'+mneHtmlSafe(q.helpText)+'</div>':'')+control+'</div>'
+    else if(q.type==='multiple_choice'||q.type==='dropdown'||q.type==='yes_no'){const opts=q.type==='yes_no'?['Yes','No']:(q.options||[]);control='<select id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'"'+disabled+required+'><option value="">Select...</option>'+opts.map(function(o){return '<option value="'+mneHtmlSafe(o)+'">'+mneHtmlSafe(o)+'</option>'}).join('')+'</select>';}
+    else if(q.type==='checkboxes'){control=(q.options||[]).map(function(o){return '<label><input type="checkbox" data-mne-check="'+mneHtmlSafe(q.id)+'" value="'+mneHtmlSafe(o)+'"'+disabled+'> '+mneHtmlSafe(o)+'</label>';}).join('<br>');}
+    else{const type=q.type==='number'?'number':q.type==='date'?'date':q.type==='rating'?'number':'text';control='<input id="'+id+'" data-mne-answer="'+mneHtmlSafe(q.id)+'" type="'+type+'"'+(q.type==='rating'?' min="1" max="5" step="1"':'')+disabled+required+'>';}
+    return '<div class="field" style="margin:12px 0"><label class="label" for="'+id+'">'+(i+1)+'. '+mneHtmlSafe(q.label)+(q.required?' *':'')+'</label>'+(q.helpText?'<div class="small">'+mneHtmlSafe(q.helpText)+'</div>':'')+control+'</div>';
   }).join('');
+  if(!previewOnly&&!submitted){
+    restoreMneDraftIntoForm(f);
+    box.querySelectorAll('[data-mne-answer], [data-mne-check]').forEach(function(el){el.addEventListener('input',function(){scheduleMneDraftSave(f)});el.addEventListener('change',function(){scheduleMneDraftSave(f)});});
+    const draft=mneDraftForForm(f);const msg=$('customMneMessage');
+    if(msg&&draft&&mneDraftHasAnswers(draft)){msg.textContent='Your saved local draft has been restored. Keep editing or save the form.';msg.className='status warn';}
+  }else if(submitted){const msg=$('customMneMessage');if(msg){msg.textContent='This form version has already been saved for this visit. The answers are locked to prevent accidental changes or duplicate submission.';msg.className='status ok';}}
   const notice=$('customMnePreviewNotice');if(notice){notice.classList.toggle('hidden',!previewOnly);if(previewOnly)notice.textContent='Preview mode: read-only. No answers are saved. Start a field visit to enable data entry.';}
   updateCustomMneCardVisibility();
 };
-window.saveCustomMneForm=async function(){if(!activeVisit){setMessage('Start a GPS-verified visit before submitting an M&E form.','warn');return}const sel=$('customMneFormSelect'),f=mnePublishedForms[Number(sel&&sel.value)];if(!f){setMessage('No published form is selected. Refresh offline data while online.','warn');return}const responses={};for(const q of (f.questions||[])){let v;if(q.type==='checkboxes'){v=Array.from(document.querySelectorAll('[data-mne-check="'+q.id.replace(/"/g,'\\"')+'"]:checked')).map(function(el){return el.value})}else{const el=document.querySelector('[data-mne-answer="'+q.id.replace(/"/g,'\\"')+'"]');v=el?String(el.value||'').trim():''}if(q.required&&(v===''||(Array.isArray(v)&&!v.length))){setMessage('Please answer the required question: '+q.label,'warn');return}responses[q.id]=v}const btn=$('saveCustomMneBtn');if(btn)btn.disabled=true;const payload={visitID:activeVisit.visitID,idempotencyKey:uid('MNE'),mneFormsSyncedAt:activeVisit.mneFormsSyncedAt||'',project:activeVisit.school&&activeVisit.school.project||(String(activeVisit.school&&activeVisit.school.recordType||'').toUpperCase()==='LEARNING_LAB'?'LEARNING_LABS':'CASCADE'),visitType:String(activeVisit.payload&&activeVisit.payload.visitType||$('visitType').value||'ME_VISIT').toUpperCase(),clientSubmittedAt:isoNow(),activityFormData:{customFormId:f.formID,formVersion:f.version,responses:responses},activitySummary:'M&E form: '+f.title,teachersReached:0,learnersReached:0,materialsStatus:'',logisticsSupport:'',issuesIdentified:'',escalationRequired:'NO',followUpAction:'',followUpDate:''};try{await enqueue('FIELD_REPORT',payload);activeVisit.activityReportSaved=true;activeVisit.activityReportType='MNE_CUSTOM';await metaSet('activeVisit',activeVisit);const msg=$('customMneMessage');if(msg){msg.textContent=online()?'Form saved on this device; synchronizing now.':'Form saved offline and will synchronize when connectivity returns.';msg.className='status ok'}if(online())await syncQueue();renderCustomMneForm()}catch(e){setMessage('M&E form could not be saved locally: '+(e.message||e),'bad')}finally{if(btn)btn.disabled=false}};
+window.saveCustomMneForm=async function(){
+  if(!activeVisit){setMessage('Start a GPS-verified visit before submitting an M&E form.','warn');return;}
+  const sel=$('customMneFormSelect'),f=mnePublishedForms[Number(sel&&sel.value)];
+  if(!f){setMessage('No published form is selected. Refresh offline data while online.','warn');return;}
+  const formKey=mneSubmissionKey(f);
+  activeVisit.mneFormSubmissions=Array.isArray(activeVisit.mneFormSubmissions)?activeVisit.mneFormSubmissions:[];
+  if(activeVisit.mneFormSubmissions.indexOf(formKey)>=0){setMessage('This form version has already been saved for the current visit.','warn');renderCustomMneForm();return;}
+  if(Array.isArray(f.visitTypeIDs)&&f.visitTypeIDs.length&&f.visitTypeIDs.indexOf(String(activeVisit.payload&&activeVisit.payload.visitTypeID||$('visitType').value))<0){setMessage('This form is not assigned to the selected visit type. Choose a matching form.','warn');return;}
+  const responses={};
+  for(const q of (f.questions||[])){
+    let v;
+    if(q.type==='checkboxes')v=Array.from(document.querySelectorAll('[data-mne-check="'+q.id+'"]:checked')).map(function(el){return el.value;});
+    else{const el=document.querySelector('[data-mne-answer="'+q.id+'"]');v=el?String(el.value||'').trim():'';}
+    if(q.required&&(v===''||(Array.isArray(v)&&!v.length))){setMessage('Please answer the required question: '+q.label,'warn');return;}
+    responses[q.id]=v;
+  }
+  const btn=$('saveCustomMneBtn');if(btn)btn.disabled=true;
+  const stableIdempotencyKey=String(activeVisit.visitID)+':MNE:'+String(f.formID)+':V'+String(f.version);
+  const payload={visitID:activeVisit.visitID,idempotencyKey:stableIdempotencyKey,projectID:projectID,projectName:projectName,mneFormsSyncedAt:activeVisit.mneFormsSyncedAt||'',project:activeVisit.school&&activeVisit.school.project||(String(activeVisit.school&&activeVisit.school.recordType||'').toUpperCase()==='LEARNING_LAB'?'LEARNING_LABS':'CASCADE'),visitType:String(activeVisit.payload&&activeVisit.payload.visitType||$('visitType').value||''),visitTypeID:String(activeVisit.payload&&activeVisit.payload.visitTypeID||$('visitType').value||''),clientSubmittedAt:isoNow(),activityFormData:{customFormId:f.formID,formVersion:f.version,responses:responses},activitySummary:'M&E form: '+f.title,teachersReached:'',learnersReached:'',materialsStatus:'',logisticsSupport:'',issuesIdentified:'',escalationRequired:'NO',followUpAction:'',followUpDate:''};
+  try{
+    const queue=await idbAll('queue');
+    const alreadyQueued=queue.some(function(item){const p=item&&item.payload||{},d=p.activityFormData||{};return String(item.action||'').toUpperCase()==='FIELD_REPORT'&&String(p.visitID||'')===String(activeVisit.visitID)&&String(p.idempotencyKey||'')===stableIdempotencyKey;});
+    if(!alreadyQueued)await enqueue('FIELD_REPORT',payload);
+    if(activeVisit.mneFormSubmissions.indexOf(formKey)<0)activeVisit.mneFormSubmissions.push(formKey);
+    if(activeVisit.mneDrafts&&activeVisit.mneDrafts[formKey])delete activeVisit.mneDrafts[formKey];
+    if(activeVisit.mneDraft&&mneSubmissionKey(activeVisit.mneDraft)===formKey)delete activeVisit.mneDraft;
+    await metaSet('activeVisit',activeVisit);
+    const msg=$('customMneMessage');if(msg){msg.textContent=online()?'Form safely queued on this device; synchronizing now.':'Form safely saved offline and will synchronize when connectivity returns.';msg.className='status ok';}
+    renderCustomMneForm();
+    if(online())await syncQueue();
+  }catch(e){setMessage('M&E form could not be saved locally: '+(e.message||e),'bad');}
+  finally{updateCustomMneCardVisibility();}
+};
 
 window.syncQueue=async function(){
   if(syncRunning)return;
@@ -433,10 +727,12 @@ window.syncQueue=async function(){
       for(const item of batch){if(!removed.includes(item.id)){const serverResult=resultList.find(x=>x.id===item.id);const stored=await idbGet('queue',item.id);if(stored){stored.attempts=(stored.attempts||0)+1;stored.lastError=serverResult&&serverResult.error?serverResult.error:'Synchronization failed.';await idbPut('queue',stored);failed.push(stored)}}}
       if((resp&&resp.remaining||0)>0)break;
     }
+    const evidenceResult=await syncEvidenceQueue();
     const remaining=await idbAll('queue');
-    if(remaining.length){setMessage(processed+' action(s) synchronized. '+remaining.length+' remain pending.'+(failed.length?' Check the queue message if a server error is reported.':''),'warn');$('syncPill').textContent='PENDING';}
-    else{await metaSet('lastSync',isoNow());setMessage(processed?'All pending field records synchronized successfully.':'No pending records needed synchronization.','ok');$('syncPill').textContent='SYNCED';}
-    $('syncPill').className='pill '+(remaining.length?'offline':'online');await refreshMeta();
+    const pendingMedia=(await idbAll('media')).filter(function(m){return String(m.status||'PENDING')!=='UPLOADED'});
+    if(remaining.length||pendingMedia.length){setMessage(processed+' field action(s) synchronized; '+remaining.length+' action(s) and '+pendingMedia.length+' evidence file(s) remain pending.'+(failed.length||evidenceResult.failed?' Check the offline queue message for the reason.':''),'warn');$('syncPill').textContent='PENDING';}
+    else{await metaSet('lastSync',isoNow());setMessage(processed||evidenceResult.uploaded?'Field records and evidence uploads are synchronized with PEN and Google Drive.':'No pending records or evidence files needed synchronization.','ok');$('syncPill').textContent='SYNCED';}
+    $('syncPill').className='pill '+(remaining.length||pendingMedia.length?'offline':'online');await refreshMeta();
   }catch(e){setMessage('Synchronization could not complete: '+(e.message||e),'bad');$('syncPill').textContent='SYNC ERROR';$('syncPill').className='pill offline';}
   finally{syncRunning=false;$('syncBtn').disabled=false;$('refreshBtn').disabled=false}
 };
@@ -463,7 +759,7 @@ window.refreshOfflineData=async function(){
   $('refreshBtn').disabled=true;setMessage('Refreshing your offline school list and access package...','');
   try{
     let bundle;
-    try{bundle=await bridgeCall('REFRESH',[offlineToken])}
+    try{bundle=await bridgeCall('REFRESH',[offlineToken,await pendingVisitTypeIDs()])}
     catch(e){
       setMessage('Offline access may have expired. Open Field Visits from the PEN Portal while online to renew it. Existing local data has not been deleted.','warn');throw e
     }
@@ -482,16 +778,19 @@ async function initialLoad(){
     setupBridge();
     const storedToken=await metaGet('offlineToken');if(!offlineToken)offlineToken=storedToken||'';if(offlineToken)await metaSet('offlineToken',offlineToken);
     await loadSchoolsFromDB();
-    const active=await metaGet('activeVisit');if(active){activeVisit=active;showActiveVisitFromStorage(active)}
+    projectID=String(await metaGet('projectID')||projectID||'');projectName=String(await metaGet('projectName')||'');configuredVisitTypes=await metaGet('visitTypes')||[];const scopeLabel=$('projectScopeLabel');if(scopeLabel)scopeLabel.textContent='Project: '+(projectName||projectID||'Not verified');
+    const active=await metaGet('activeVisit');if(active){activeVisit=active;await reconcileQueuedMneSubmissions(activeVisit);showActiveVisitFromStorage(activeVisit)}
+    await renderEvidenceAttachments();
     await refreshMeta();
 
     if(online()&&(bridgeUrl||parentBridgeAvailable())){
       try{
         let bundle;
-        if(parentBridgeAvailable())bundle=await bridgeCall('PROVISION',[]);
+        const retainedTypes=await pendingVisitTypeIDs();
+        if(parentBridgeAvailable())bundle=await bridgeCall('PROVISION',[normalToken,projectID,retainedTypes]);
         else if(offlineToken)bundle=await bridgeCall('GET_BUNDLE',[offlineToken]);
-        else if(normalToken)bundle=await bridgeCall('PROVISION',[normalToken]);
-        if(bundle){await saveBundle(bundle);setMessage('Offline field access is ready. '+schools.length+' assigned school(s) are available on this device.','ok');$('visitCard').classList.remove('hidden');$('setupCard').classList.add('hidden')}
+        else if(normalToken)bundle=await bridgeCall('PROVISION',[normalToken,projectID,retainedTypes]);
+        if(bundle){await saveBundle(bundle);setMessage('Offline field access is ready for '+(projectName||'the selected project')+'. '+schools.length+' assigned school(s) are available on this device.','ok');$('visitCard').classList.remove('hidden');$('setupCard').classList.add('hidden')}
         else throw new Error('No offline bundle was received.');
       }catch(e){
         if(schools.length){$('visitCard').classList.remove('hidden');$('setupCard').classList.add('hidden');setMessage('Using the school data already stored on this device. Server refresh is currently unavailable.','warn')}
@@ -504,12 +803,14 @@ async function initialLoad(){
 }
 function showActiveVisitFromStorage(v){
   if(v&&v.school&&v.school.schoolKey&&schools.some(function(s){return String(s.schoolKey)===String(v.school.schoolKey)}))$('school').value=v.school.schoolKey;
-  if(v&&v.payload&&v.payload.visitType)$('visitType').value=v.payload.visitType;
+  if(v&&v.payload&&v.payload.visitTypeID)$('visitType').value=v.payload.visitTypeID;
   $('visitType').disabled=true;
   updateSchoolLocationInfo();updateVisitTypeOptions();
-  if(v&&v.payload&&v.payload.visitType)$('visitType').value=v.payload.visitType;
+  if(v&&v.payload&&v.payload.visitTypeID)$('visitType').value=v.payload.visitTypeID;
+  if($('notes'))$('notes').value=String(v.notesDraft||'');
+  if(v&&v.mneDraft&&$('customMneFormSelect')){const formIndex=mnePublishedForms.findIndex(function(f){return String(f.formID)===String(v.mneDraft.formID)&&Number(f.version)===Number(v.mneDraft.version)});if(formIndex>=0)$('customMneFormSelect').value=String(formIndex)}
   updateVisitTypeOptions();
-  $('activeCard').classList.remove('hidden');renderCustomMneForm();$('visitStatus').textContent='An active visit is saved on this device for '+(v.school&&v.school.school||'the selected school')+'.';$('visitStatus').className='status warn';$('gpsBox').textContent=v.checkIn?'Check-in GPS\nLatitude: '+v.checkIn.latitude+'\nLongitude: '+v.checkIn.longitude+'\nAccuracy: '+Math.round(v.checkIn.accuracy)+' m':'Visit saved offline.';
+  $('activeCard').classList.remove('hidden');$('fieldObservationCard').classList.remove('hidden');$('fieldEvidenceCard').classList.remove('hidden');restoreFieldObservationForm(v);renderCustomMneForm();renderEvidenceAttachments();$('visitStatus').textContent='An active visit is saved on this device for '+(v.school&&v.school.school||'the selected school')+'.';$('visitStatus').className='status warn';$('gpsBox').textContent=v.checkIn?'Check-in GPS\nLatitude: '+v.checkIn.latitude+'\nLongitude: '+v.checkIn.longitude+'\nAccuracy: '+Math.round(v.checkIn.accuracy)+' m':'Visit saved offline.';
 }
 
 window.addEventListener('online',async function(){connectionUI();setMessage('Internet restored. Preparing the secure sync connection...','ok');try{if(bridgeUrl&&!parentBridgeAvailable()){bridgeReady=false;setupBridge()}await syncQueue();if(offlineToken)await refreshOfflineData()}catch(_){} });
@@ -518,8 +819,14 @@ window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();def
 window.setInterval(function(){if(online()&&offlineToken&&!syncRunning&&!activeVisit)window.refreshPublishedMneForms(true)},60000);
 window.installApp=async function(){if(!deferredInstallPrompt)return;deferredInstallPrompt.prompt();try{await deferredInstallPrompt.userChoice}catch(_){}deferredInstallPrompt=null;$('installBtn').style.display='none'};
 
+function initLocalDraftAutosave(){
+  ['fieldActivitySummary','fieldTeachersReached','fieldLearnersReached','fieldMaterialsStatus','fieldLogisticsSupport','fieldIssuesIdentified','fieldEscalationRequired','fieldFollowUpDate','fieldFollowUpAction'].forEach(function(id){const el=$(id);if(el){el.addEventListener('input',scheduleFieldObservationDraftSave);el.addEventListener('change',scheduleFieldObservationDraftSave)}});
+  if($('notes'))$('notes').addEventListener('input',scheduleFieldObservationDraftSave);
+}
+
 if('serviceWorker' in navigator){const appBase=new URL('./',location.href);const workerUrl=new URL('./sw.js',location.href);navigator.serviceWorker.register(workerUrl.href,{scope:appBase.pathname}).then(function(reg){reg.update().catch(function(){});}).catch(function(){setMessage('Offline application caching is not active yet. Publish the supplied sw.js beside index.html, then reload this page while online.','warn')})}
 
+initLocalDraftAutosave();
 initialLoad();
 })();
 </script>
