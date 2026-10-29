@@ -12,7 +12,7 @@ Architecture:
 It does NOT load Strikingly.
 
 Production Apps Script:
-https://script.google.com/macros/s/AKfycbz4OAIXJVtUWOPUjIXz6WV4DWYLWepJsQMCshp5IKEa4efBcrtrisoXgmRqeLYfIyDicA/exec
+https://script.google.com/macros/s/AKfycbwmduU91w44Y5xmQKTP14GqYM5Eda-59Exo6_gNKeWsT16ktcc0JMZhUnzC1jYTljeF8g/exec
 
 Files:
   index.html
@@ -22,7 +22,7 @@ Files:
 
 Replace the GitHub repository files with the contents of this package.
 
-Do not change the Apps Script project as part of this step.
+Canonical production deployment aligned on 2026-10-29. The Apps Script project URL constant must match this URL.
 
 The service worker deliberately caches only the PWA shell.
 The cross-origin Apps Script portal is not cached.

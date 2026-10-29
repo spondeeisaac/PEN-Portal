@@ -1,7 +1,7 @@
 /* PEN Portal PWA shell. Field Visit has a more specific worker in /field-visit/. */
 'use strict';
 const CACHE_PREFIX = 'pen-main-portal-shell-';
-const CACHE_NAME = CACHE_PREFIX + '2026.1';
+const CACHE_NAME = CACHE_PREFIX + '2026.2';
 const ROOT_BASE = new URL('./', self.registration.scope);
 const ROOT_PATH = ROOT_BASE.pathname;
 const APP_INDEX = new URL('index.html', ROOT_BASE).href;
