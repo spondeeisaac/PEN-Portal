@@ -153,12 +153,14 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='PEN-FIELD-VISIT-OFFLINE-2026.10.29.2';
-const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026';
-const DB_VERSION=2;
+const APP_VERSION='PEN-FIELD-OPERATIONS-2026.10.31.1';
+const p=new URLSearchParams(location.search);
+const portalProjectID=String(p.get('projectID')||'').trim();
+const projectStorageKey=(portalProjectID||'UNASSIGNED').replace(/[^a-zA-Z0-9_-]/g,'_');
+const DB_NAME='PEN_FIELD_VISIT_OFFLINE_DB_2026_'+projectStorageKey;
+const DB_VERSION=3;
 const BRIDGE_SOURCE='PEN_FIELD_VISIT_PWA_2026';
 const DEFAULT_BRIDGE_URL='';
-const p=new URLSearchParams(location.search);
 const portalOrigin=p.get('portalOrigin')||'';
 const portalHandoff=p.get('handoff')||'';
 let bridgeUrl=p.get('bridge')||DEFAULT_BRIDGE_URL;
@@ -167,7 +169,7 @@ let normalToken=p.get('token')||'';
 let schools=[];
 let activeVisit=null;
 let actorRole="";
-let projectID=p.get('projectID')||'';
+let projectID=portalProjectID;
 let projectName='';
 let configuredVisitTypes=[];
 let deferredInstallPrompt=null;
@@ -257,6 +259,9 @@ async function bridgeCall(action,args){
 
 async function saveBundle(bundle){
   if(!bundle)return;
+  const bundleProjectID=String(bundle.projectID||bundle.actor&&bundle.actor.projectID||'').trim();
+  if(!portalProjectID)throw new Error('Project scope is missing. Reopen the Field Visit App from the selected project in the PEN Portal.');
+  if(!bundleProjectID||bundleProjectID!==portalProjectID)throw new Error('The server returned a different project workspace. No offline data was saved. Reopen the Field Visit App from the correct PEN Portal project.');
   schools=Array.isArray(bundle.schools)?bundle.schools:[];
   actorRole=String(bundle.actor&&bundle.actor.role||actorRole||"").toUpperCase();
   const existing=await idbAll('schools');
@@ -264,7 +269,7 @@ async function saveBundle(bundle){
   for(const s of existing){if(!newKeys[s.schoolKey])await idbDelete('schools',s.schoolKey)}
   for(const s of schools)await idbPut('schools',s);
   const mneForms=Array.isArray(bundle.forms)?bundle.forms:[];
-  projectID=String(bundle.projectID||bundle.actor&&bundle.actor.projectID||projectID||'');
+  projectID=bundleProjectID;
   projectName=String(bundle.projectName||bundle.actor&&bundle.actor.projectName||'');
   configuredVisitTypes=Array.isArray(bundle.visitTypes)?bundle.visitTypes:[];
   const scopeLabel=$('projectScopeLabel');if(scopeLabel)scopeLabel.textContent='Project: '+(projectName||projectID||'Not verified');
@@ -778,7 +783,7 @@ async function initialLoad(){
     setupBridge();
     const storedToken=await metaGet('offlineToken');if(!offlineToken)offlineToken=storedToken||'';if(offlineToken)await metaSet('offlineToken',offlineToken);
     await loadSchoolsFromDB();
-    projectID=String(await metaGet('projectID')||projectID||'');projectName=String(await metaGet('projectName')||'');configuredVisitTypes=await metaGet('visitTypes')||[];const scopeLabel=$('projectScopeLabel');if(scopeLabel)scopeLabel.textContent='Project: '+(projectName||projectID||'Not verified');
+    const cachedProjectID=String(await metaGet('projectID')||'');if(cachedProjectID&&cachedProjectID!==portalProjectID)throw new Error('The cached project identity does not match the portal selection. Reopen the app from the PEN Portal.');projectID=portalProjectID;projectName=String(await metaGet('projectName')||'');configuredVisitTypes=await metaGet('visitTypes')||[];const scopeLabel=$('projectScopeLabel');if(scopeLabel)scopeLabel.textContent='Project: '+(projectName||projectID||'Not verified');
     const active=await metaGet('activeVisit');if(active){activeVisit=active;await reconcileQueuedMneSubmissions(activeVisit);showActiveVisitFromStorage(activeVisit)}
     await renderEvidenceAttachments();
     await refreshMeta();
