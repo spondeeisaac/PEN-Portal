@@ -153,7 +153,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='PEN-FIELD-OPERATIONS-2026.10.31.1';
+const APP_VERSION='PEN-FIELD-OPERATIONS-2026.11.01.3';
 const p=new URLSearchParams(location.search);
 const portalProjectID=String(p.get('projectID')||'').trim();
 const projectStorageKey=(portalProjectID||'UNASSIGNED').replace(/[^a-zA-Z0-9_-]/g,'_');
@@ -749,11 +749,14 @@ window.refreshPublishedMneForms=async function(silent){
   publishedFormsRefreshRunning=true;
   try{
     const result=await bridgeCall('GET_FORMS',[offlineToken]);
+    if(result&&result.projectID&&String(result.projectID)!==String(projectID))throw new Error('The M&E catalogue belongs to a different project. Reopen the app from the correct PEN Portal project.');
     const forms=Array.isArray(result&&result.forms)?result.forms:[];
+    const types=Array.isArray(result&&result.visitTypes)?result.visitTypes:null;
+    if(types){configuredVisitTypes=types;await metaSet('visitTypes',types);updateVisitTypeOptions();}
     await metaSet('mnePublishedForms',forms);
     await metaSet('mneFormsSyncedAt',result.serverTime||isoNow());
     renderCustomMneFormOptions(forms);
-    if(!silent)setMessage('Published M&E forms refreshed. '+forms.length+' active form(s) are available for your role.','ok');
+    if(!silent)setMessage('M&E catalogue refreshed. '+(types?types.length+' active visit type(s) and ':'')+forms.length+' published form(s) are available for your role.','ok');
   }catch(e){if(!silent)setMessage('Published forms could not be refreshed. Cached forms remain available; retry while online.','warn')}
   finally{publishedFormsRefreshRunning=false}
 };
