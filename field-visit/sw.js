@@ -1,12 +1,15 @@
 /* PEN Field Visit PWA app-shell cache. Scope is the GitHub Pages /PEN-Portal/ path. */
 'use strict';
 const CACHE_PREFIX = 'pen-field-visit-subapp-shell-';
-const CACHE_NAME = CACHE_PREFIX + '2026.11.01.3';
+const CACHE_NAME = CACHE_PREFIX + '2026.11.02.1';
 const APP_BASE = new URL('./', self.registration.scope);
 const APP_INDEX = new URL('index.html', APP_BASE).href;
 const APP_MANIFEST = new URL('manifest.webmanifest', APP_BASE).href;
 const APP_ICON = new URL('pen-field-visit-icon.svg', APP_BASE).href;
-const CORE_ASSETS = [APP_INDEX, APP_MANIFEST, APP_ICON];
+const APP_ICON_192 = new URL('icon-192.png', APP_BASE).href;
+const APP_ICON_512 = new URL('icon-512.png', APP_BASE).href;
+const APP_APPLE_ICON = new URL('apple-touch-icon.png', APP_BASE).href;
+const CORE_ASSETS = [APP_INDEX, APP_MANIFEST, APP_ICON, APP_ICON_192, APP_ICON_512, APP_APPLE_ICON];
 
 self.addEventListener('install', function (event) {
   event.waitUntil(
@@ -56,7 +59,8 @@ self.addEventListener('fetch', function (event) {
     return;
   }
 
-  if ([APP_INDEX, APP_MANIFEST, APP_ICON].indexOf(url.href.split('#')[0]) >= 0) {
+  const core = [APP_INDEX, APP_MANIFEST, APP_ICON, APP_ICON_192, APP_ICON_512, APP_APPLE_ICON];
+  if (core.indexOf(url.href.split('#')[0]) >= 0) {
     event.respondWith(
       caches.match(request).then(function (cached) {
         if (cached) return cached;
