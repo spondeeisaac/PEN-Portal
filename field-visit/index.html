@@ -39,7 +39,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
       <div>
         <h1>PEN Field Visit App</h1>
         <div class="small">Offline-first field visit verification for Master Trainers and Field Support Officers.</div>
-        <div id="projectScopeLabel" class="pill" style="margin-top:7px">Project: verifying…</div>
+        <div style="margin-top:7px"><span id="projectScopeLabel" class="pill">Project: verifying…</span><span class="pill" style="background:#e6eef5;color:#32566c">Build 2026.11.02.3</span></div>
       </div>
       <div>
         <span id="connectionPill" class="pill">Checking connection...</span>
@@ -126,7 +126,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <button class="secondary" onclick="syncQueue()">Sync Now</button>
   </div>
 
-  <footer>PEN Field Visit Offline App • Build 2026.11.02.1</footer>
+  <footer>PEN Field Visit Offline App • Build 2026.11.02.3</footer>
 </div>
 
 <iframe id="bridgeFrame" title="PEN secure field bridge" aria-hidden="true"></iframe>
@@ -134,7 +134,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='PEN-FIELD-OPERATIONS-2026.11.02.1';
+const APP_VERSION='PEN-FIELD-OPERATIONS-2026.11.02.3';
 const p=new URLSearchParams(location.search);
 const portalProjectID=String(p.get('projectID')||'').trim();
 const DB_PREFIX='PEN_FIELD_VISIT_OFFLINE_DB_2026_';
@@ -156,6 +156,7 @@ let projectName='';
 let configuredVisitTypes=[];
 let deferredInstallPrompt=null;
 let dbPromise=null;
+let dbConnection=null;
 let bridgeReady=false;
 const bridgePending={};
 let syncRunning=false;
@@ -173,16 +174,80 @@ function safeDate(v){const d=v?new Date(v):null;return d&&!isNaN(d.getTime())?d:
 function isoNow(){return new Date().toISOString()}
 function fmt(v){const d=safeDate(v);return d?d.toLocaleString():String(v||'—')}
 
+function resetIdbHandle(expectedDb){
+  if(expectedDb && dbConnection && dbConnection!==expectedDb)return;
+  const previous=dbConnection;
+  dbConnection=null;
+  dbPromise=null;
+  if(previous){try{previous.close();}catch(_){} }
+}
 function setProjectWorkspace(id){
   const clean=String(id||'').trim();if(!clean)throw new Error('A saved project workspace must be selected.');
-  projectID=clean;DB_NAME=DB_PREFIX+clean.replace(/[^a-zA-Z0-9_-]/g,'_');dbPromise=null;
+  const nextName=DB_PREFIX+clean.replace(/[^a-zA-Z0-9_-]/g,'_');
+  if(DB_NAME && DB_NAME!==nextName)resetIdbHandle();
+  projectID=clean;DB_NAME=nextName;
+}
+function isIdbClosingError(error){
+  const name=String(error&&error.name||'');
+  const message=String(error&&error.message||error||'');
+  return name==='InvalidStateError'||/database connection is closing|connection is closing|database connection is closed/i.test(message);
 }
 function workspaceIndexOpen(){
-  return new Promise(function(resolve,reject){const req=indexedDB.open(WORKSPACE_INDEX_DB,1);req.onupgradeneeded=function(){const db=req.result;if(!db.objectStoreNames.contains('workspaces'))db.createObjectStore('workspaces',{keyPath:'projectID'});};req.onsuccess=function(){resolve(req.result)};req.onerror=function(){reject(req.error||new Error('Project workspace index could not be opened.'))};});
+  return new Promise(function(resolve,reject){
+    let req;try{req=indexedDB.open(WORKSPACE_INDEX_DB,1);}catch(e){reject(e);return;}
+    req.onupgradeneeded=function(){const db=req.result;if(!db.objectStoreNames.contains('workspaces'))db.createObjectStore('workspaces',{keyPath:'projectID'});};
+    req.onsuccess=function(){resolve(req.result)};
+    req.onerror=function(){reject(req.error||new Error('Project workspace index could not be opened.'))};
+  });
 }
-async function workspaceIndexPut(item){const db=await workspaceIndexOpen();return new Promise(function(resolve,reject){const tx=db.transaction('workspaces','readwrite');tx.objectStore('workspaces').put(item);tx.oncomplete=function(){db.close();resolve(true)};tx.onerror=function(){db.close();reject(tx.error||new Error('Project workspace index could not be saved.'))};});}
-async function workspaceIndexAll(){const db=await workspaceIndexOpen();return new Promise(function(resolve,reject){const tx=db.transaction('workspaces','readonly'),req=tx.objectStore('workspaces').getAll();req.onsuccess=function(){db.close();resolve(req.result||[])};req.onerror=function(){db.close();reject(req.error)};});}
-async function readMetaFromDatabase(name,key){return new Promise(function(resolve){let req;try{req=indexedDB.open(name)}catch(e){resolve(null);return}req.onsuccess=function(){const db=req.result;if(!db.objectStoreNames.contains('meta')){db.close();resolve(null);return;}try{const tx=db.transaction('meta','readonly'),get=tx.objectStore('meta').get(key);get.onsuccess=function(){const value=get.result&&get.result.value;db.close();resolve(value==null?null:value)};get.onerror=function(){db.close();resolve(null)};}catch(e){db.close();resolve(null)}};req.onerror=function(){resolve(null)};});}
+async function workspaceIndexPut(item){
+  let lastError;
+  for(let attempt=0;attempt<2;attempt++){
+    const db=await workspaceIndexOpen();let tx;
+    try{tx=db.transaction('workspaces','readwrite');}
+    catch(e){lastError=e;try{db.close();}catch(_){}if(attempt===0&&isIdbClosingError(e))continue;throw e;}
+    try{return await new Promise(function(resolve,reject){
+      tx.objectStore('workspaces').put(item);
+      tx.oncomplete=function(){try{db.close();}catch(_){}resolve(true)};
+      tx.onerror=function(){const e=tx.error||new Error('Project workspace index could not be saved.');try{db.close();}catch(_){}reject(e)};
+      tx.onabort=function(){const e=tx.error||new Error('Project workspace index write was aborted.');try{db.close();}catch(_){}reject(e)};
+    });}catch(e){lastError=e;throw e;}
+  }
+  throw lastError||new Error('Project workspace index could not be saved.');
+}
+async function workspaceIndexAll(){
+  let lastError;
+  for(let attempt=0;attempt<2;attempt++){
+    const db=await workspaceIndexOpen();let tx;
+    try{tx=db.transaction('workspaces','readonly');}
+    catch(e){lastError=e;try{db.close();}catch(_){}if(attempt===0&&isIdbClosingError(e))continue;throw e;}
+    try{return await new Promise(function(resolve,reject){
+      let values=[];const req=tx.objectStore('workspaces').getAll();
+      req.onsuccess=function(){values=req.result||[];};
+      tx.oncomplete=function(){try{db.close();}catch(_){}resolve(values)};
+      tx.onerror=function(){const e=tx.error||new Error('Project workspace index could not be read.');try{db.close();}catch(_){}reject(e)};
+      tx.onabort=function(){const e=tx.error||new Error('Project workspace index read was aborted.');try{db.close();}catch(_){}reject(e)};
+    });}catch(e){lastError=e;throw e;}
+  }
+  throw lastError||new Error('Project workspace index could not be read.');
+}
+async function readMetaFromDatabase(name,key){
+  for(let attempt=0;attempt<2;attempt++){
+    let req;try{req=indexedDB.open(name);}catch(e){return null;}
+    const db=await new Promise(function(resolve,reject){req.onsuccess=function(){resolve(req.result)};req.onerror=function(){reject(req.error||new Error('Could not open existing workspace.'))};});
+    if(!db.objectStoreNames.contains('meta')){try{db.close();}catch(_){}return null;}
+    let tx;try{tx=db.transaction('meta','readonly');}
+    catch(e){try{db.close();}catch(_){}if(attempt===0&&isIdbClosingError(e))continue;return null;}
+    try{return await new Promise(function(resolve){
+      let value=null;const get=tx.objectStore('meta').get(key);
+      get.onsuccess=function(){value=get.result&&get.result.value!=null?get.result.value:null;};
+      tx.oncomplete=function(){try{db.close();}catch(_){}resolve(value)};
+      tx.onerror=function(){try{db.close();}catch(_){}resolve(null)};
+      tx.onabort=function(){try{db.close();}catch(_){}resolve(null)};
+    });}catch(e){try{db.close();}catch(_){}return null;}
+  }
+  return null;
+}
 async function discoverExistingWorkspaces(){
   if(!indexedDB.databases)return;
   let infos=[];try{infos=await indexedDB.databases()}catch(e){return;}
@@ -198,9 +263,12 @@ window.openOfflineWorkspace=async function(){
 };
 
 function idbOpen(){
+  if(!DB_NAME)return Promise.reject(new Error('Project workspace is not selected.'));
   if(dbPromise)return dbPromise;
-  dbPromise=new Promise(function(resolve,reject){
-    const req=indexedDB.open(DB_NAME,DB_VERSION);
+  const openingName=DB_NAME;
+  let openingPromise;
+  openingPromise=new Promise(function(resolve,reject){
+    let req;try{req=indexedDB.open(openingName,DB_VERSION);}catch(e){reject(e);return;}
     req.onupgradeneeded=function(){
       const db=req.result;
       if(!db.objectStoreNames.contains('meta'))db.createObjectStore('meta',{keyPath:'key'});
@@ -208,17 +276,66 @@ function idbOpen(){
       if(!db.objectStoreNames.contains('queue'))db.createObjectStore('queue',{keyPath:'id'});
       if(!db.objectStoreNames.contains('media'))db.createObjectStore('media',{keyPath:'id'});
     };
-    req.onsuccess=function(){resolve(req.result)};req.onerror=function(){reject(req.error||new Error('Unable to open offline storage.'))};
+    req.onsuccess=function(){
+      const db=req.result;
+      if(DB_NAME!==openingName){try{db.close();}catch(_){}reject(new Error('The selected project changed while offline storage was opening.'));return;}
+      dbConnection=db;
+      const release=function(){if(dbConnection===db){dbConnection=null;}if(dbPromise===openingPromise){dbPromise=null;}};
+      db.onversionchange=function(){release();try{db.close();}catch(_){}};
+      // The close event is not exposed consistently by all embedded Chromium builds;
+      // transaction creation below therefore also performs a direct stale-handle retry.
+      try{db.addEventListener('close',release);}catch(_){db.onclose=release;}
+      resolve(db);
+    };
+    req.onerror=function(){reject(req.error||new Error('Unable to open offline storage.'))};
+    req.onblocked=function(){reject(new Error('Offline storage upgrade is blocked by another open Field Visit window. Close other Field Visit windows and retry.'))};
   });
-  return dbPromise;
+  dbPromise=openingPromise;
+  openingPromise.catch(function(){if(dbPromise===openingPromise)dbPromise=null;});
+  return openingPromise;
 }
-async function idbGet(store,key){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(store,'readonly'),req=tx.objectStore(store).get(key);req.onsuccess=()=>res(req.result||null);req.onerror=()=>rej(req.error)})}
-async function idbPut(store,val){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(val);tx.oncomplete=()=>res(true);tx.onerror=()=>rej(tx.error||new Error('Storage write failed.'))})}
-async function idbDelete(store,key){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(key);tx.oncomplete=()=>res(true);tx.onerror=()=>rej(tx.error)})}
-async function idbAll(store){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(store,'readonly'),req=tx.objectStore(store).getAll();req.onsuccess=()=>res(req.result||[]);req.onerror=()=>rej(req.error)})}
-async function metaGet(key){const r=await idbGet('meta',key);return r?r.value:null}
-async function metaSet(key,value){return idbPut('meta',{key:key,value:value,updatedAt:isoNow()})}
-
+async function idbWithTransaction(stores,mode,configure){
+  let lastError;
+  for(let attempt=0;attempt<2;attempt++){
+    const db=await idbOpen();let tx;
+    try{tx=db.transaction(stores,mode);}
+    catch(e){
+      lastError=e;
+      if(attempt===0&&isIdbClosingError(e)){resetIdbHandle(db);continue;}
+      throw e;
+    }
+    try{
+      return await new Promise(function(resolve,reject){
+        let result;let settled=false;
+        tx.oncomplete=function(){if(!settled){settled=true;resolve(result);}};
+        tx.onerror=function(){if(!settled){settled=true;reject(tx.error||new Error('Offline database transaction failed.'));}};
+        tx.onabort=function(){if(!settled){settled=true;reject(tx.error||new Error('Offline database transaction was aborted.'));}};
+        try{configure(tx,function(value){result=value;});}
+        catch(e){try{tx.abort();}catch(_){}if(!settled){settled=true;reject(e);}}
+      });
+    }catch(e){
+      lastError=e;
+      // Retry only a connection-lifecycle failure. The current wrappers use get/put/delete,
+      // so a transaction that failed before completion can safely be reopened and replayed.
+      if(attempt===0&&isIdbClosingError(e)){resetIdbHandle(db);continue;}
+      throw e;
+    }
+  }
+  throw lastError||new Error('Offline database transaction could not be opened.');
+}
+async function idbProbe(){
+  const db=await idbOpen();
+  const required=['meta','schools','queue','media'];
+  if(!required.every(function(name){return db.objectStoreNames.contains(name);}))return false;
+  await idbWithTransaction(required,'readonly',function(tx){required.forEach(function(name){tx.objectStore(name).count();});});
+  return true;
+}
+async function idbGet(store,key){return idbWithTransaction(store,'readonly',function(tx,setResult){const req=tx.objectStore(store).get(key);req.onsuccess=function(){setResult(req.result||null);};});}
+async function idbPut(store,val){await idbWithTransaction(store,'readwrite',function(tx){tx.objectStore(store).put(val);});return true;}
+async function idbDelete(store,key){await idbWithTransaction(store,'readwrite',function(tx){tx.objectStore(store).delete(key);});return true;}
+async function idbAll(store){return idbWithTransaction(store,'readonly',function(tx,setResult){const req=tx.objectStore(store).getAll();req.onsuccess=function(){setResult(req.result||[]);};});}
+async function metaGet(key){const r=await idbGet('meta',key);return r?r.value:null;}
+async function metaSet(key,value){return idbPut('meta',{key:key,value:value,updatedAt:isoNow()});}
 function setupBridge(){
   if(!bridgeUrl)return;
   const frame=$('bridgeFrame');
@@ -687,7 +804,7 @@ window.runOfflineReadiness=async function(){
     const types=Array.isArray(configuredVisitTypes)?configuredVisitTypes:[];add('Active visit types cached',types.some(function(t){return String(t.status||'ACTIVE').toUpperCase()==='ACTIVE';}),types.length+' visit type(s)');
     const forms=Array.isArray(mnePublishedForms)?mnePublishedForms:[];add('Published MNE forms cached',forms.length>0,forms.length+' form(s)');
     const uncovered=types.filter(function(t){return String(t.status||'ACTIVE').toUpperCase()==='ACTIVE'&&!forms.some(function(f){return Array.isArray(f.visitTypeIDs)&&f.visitTypeIDs.map(String).indexOf(String(t.visitTypeID))>=0;});});add('Visit types have MNE forms',uncovered.length===0,uncovered.length?('Missing forms for: '+uncovered.map(function(x){return x.name||x.visitTypeID;}).join(', ')):'Every active visit type has at least one published form');
-    let dbOK=false;try{const db=await idbOpen();dbOK=['meta','schools','queue','media'].every(function(n){return db.objectStoreNames.contains(n);});db.close();}catch(e){}add('Local database available',dbOK,'Project-separated IndexedDB stores are accessible');
+    let dbOK=false,dbDetail='Project-separated IndexedDB stores are accessible';try{dbOK=await idbProbe();if(!dbOK)dbDetail='One or more required local stores are missing.';}catch(e){dbDetail=e.message||'Local database could not be read.';}add('Local database available',dbOK,dbDetail);
     let storagePersistent=false;try{if(navigator.storage&&navigator.storage.persisted){storagePersistent=await navigator.storage.persisted();if(!storagePersistent&&navigator.storage.persist)storagePersistent=await navigator.storage.persist();}}catch(e){}add('Browser storage protected from routine eviction',storagePersistent,storagePersistent?'Persistent storage permission is active':'Browser may evict stored data under pressure; keep this device storage available and verify backups by syncing when online');
     add('GPS/location API available',!!(navigator.geolocation&&window.isSecureContext),'Device location permission and satellite reception must still be available at the visit site');
     let swOK=false;try{swOK=('serviceWorker' in navigator)&&!!(await navigator.serviceWorker.ready);if(swOK&&window.caches){const cached=await caches.match(new URL('index.html',new URL('./',location.href)).href);swOK=!!cached;}}catch(e){}add('Offline app shell cached',swOK,'Service worker and application shell');
@@ -696,7 +813,7 @@ window.runOfflineReadiness=async function(){
     panel.className='status '+(failed.length?'warn':'ok');
     setMessage(failed.length?'This device is not fully prepared for offline fieldwork. Resolve the flagged items before travelling.':'Offline preparation checks passed. GPS reception and device permissions must still be available at the school.',''+(failed.length?'warn':'ok'));
     return {ready:failed.length===0,checks:checks};
-  }catch(e){panel.textContent='Offline readiness could not be verified: '+(e.message||e);panel.className='status bad';return {ready:false,error:e.message||String(e)};}
+  }catch(e){panel.textContent='Offline readiness could not be verified (Build 2026.11.02.3): '+(e.message||e);panel.className='status bad';return {ready:false,error:e.message||String(e)};}
   finally{if(btn)btn.disabled=false;}
 };
 
@@ -708,7 +825,8 @@ window.refreshOfflineData=async function(){
     let bundle;
     try{bundle=await bridgeCall('REFRESH',[offlineToken,await pendingVisitTypeIDs()])}
     catch(e){
-      setMessage('Offline access may have expired. Open Field Visits from the PEN Portal while online to renew it. Existing local data has not been deleted.','warn');throw e
+      const detail=String(e&&e.message||'The server did not return a refresh confirmation.');
+      setMessage('Offline data refresh failed: '+detail+'. This does not by itself mean offline access has expired. Existing local data has not been deleted.','warn');throw e
     }
     await saveBundle(bundle);setMessage('Offline data refreshed. '+schools.length+' assigned school(s) are cached on this device.','ok');await renderQueue();
   }catch(e){/* message already shown */}
@@ -754,7 +872,29 @@ window.setInterval(function(){if(online()&&offlineToken&&!syncRunning&&!activeVi
 window.installApp=async function(){if(!deferredInstallPrompt)return;deferredInstallPrompt.prompt();try{await deferredInstallPrompt.userChoice}catch(_){}deferredInstallPrompt=null;$('installBtn').style.display='none'};
 
 const visitTypeElement=$('visitType');if(visitTypeElement)visitTypeElement.addEventListener('change',function(){renderAssignedMneForms();renderFieldToolsForVisit();});
-if('serviceWorker' in navigator){const appBase=new URL('./',location.href);const workerUrl=new URL('./sw.js',location.href);navigator.serviceWorker.register(workerUrl.href,{scope:appBase.pathname}).then(function(reg){return navigator.serviceWorker.ready;}).then(function(reg){return caches.match(new URL('index.html',appBase).href);}).then(function(cached){if(!cached)setMessage('The offline app shell is not cached yet. Keep this page open online and reload after the cache finishes.','warn');}).catch(function(){setMessage('Offline app files could not be prepared. Keep the app online and reload before travelling.','warn');});}
+if('serviceWorker' in navigator){
+  const appBase=new URL('./',location.href),workerUrl=new URL('./sw.js',location.href);
+  const hadController=!!navigator.serviceWorker.controller;
+  let controllerReloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(!hadController||controllerReloaded)return;
+    controllerReloaded=true;
+    let key='PEN_FIELD_VISIT_CONTROLLER_RELOAD_2026_11_02_3';
+    try{if(sessionStorage.getItem(key)==='1')return;sessionStorage.setItem(key,'1');}catch(_){}
+    location.reload();
+  });
+  navigator.serviceWorker.register(workerUrl.href,{scope:appBase.pathname,updateViaCache:'none'})
+    .then(async function(reg){
+      if(online()){
+        try{await reg.update();}catch(_){}
+        if(reg.waiting){try{reg.waiting.postMessage({type:'SKIP_WAITING'});}catch(_){}}
+      }
+      await navigator.serviceWorker.ready;
+      const cached=await caches.match(new URL('index.html',appBase).href);
+      if(!cached)setMessage('The offline app shell is not cached yet. Keep this page open online and reload after the cache finishes.','warn');
+    })
+    .catch(function(){setMessage('Offline app files could not be prepared. Keep the app online and reload before travelling.','warn');});
+}
 initialLoad().then(function(){if(offlineToken)runOfflineReadiness();}).catch(function(){});
 })();
 </script>
