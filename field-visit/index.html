@@ -39,7 +39,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
       <div>
         <h1>PEN Field Visit App</h1>
         <div class="small">Offline-first field visit verification for Master Trainers and Field Support Officers.</div>
-        <div style="margin-top:7px"><span id="projectScopeLabel" class="pill">Project: verifying…</span><span class="pill" style="background:#e6eef5;color:#32566c">Build 2026.11.02.3</span></div>
+        <div style="margin-top:7px"><span id="projectScopeLabel" class="pill">Project: verifying…</span><span class="pill" style="background:#e6eef5;color:#32566c">Build 2026.11.04.2</span></div>
       </div>
       <div>
         <span id="connectionPill" class="pill">Checking connection...</span>
@@ -126,7 +126,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
     <button class="secondary" onclick="syncQueue()">Sync Now</button>
   </div>
 
-  <footer>PEN Field Visit Offline App • Build 2026.11.02.3</footer>
+  <footer>PEN Field Visit Offline App • Build 2026.11.04.2</footer>
 </div>
 
 <iframe id="bridgeFrame" title="PEN secure field bridge" aria-hidden="true"></iframe>
@@ -134,7 +134,7 @@ footer{font-size:11px;color:var(--muted);text-align:center;margin-top:16px}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='PEN-FIELD-OPERATIONS-2026.11.02.3';
+const APP_VERSION='PEN-FIELD-OPERATIONS-2026.11.04.2';
 const p=new URLSearchParams(location.search);
 const portalProjectID=String(p.get('projectID')||'').trim();
 const DB_PREFIX='PEN_FIELD_VISIT_OFFLINE_DB_2026_';
@@ -554,7 +554,7 @@ async function renderEvidenceAttachments(){
     const item=document.createElement('div');item.style.cssText='border:1px solid var(--line);border-radius:9px;padding:10px;margin:7px 0;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap';
     const name=document.createElement('div');name.style.cssText='min-width:0;flex:1';
     const strong=document.createElement('strong');strong.textContent=m.fileName||'Evidence file';strong.style.cssText='display:block;overflow-wrap:anywhere;font-size:13px';
-    const detail=document.createElement('div');detail.className='small';detail.textContent=(m.evidenceType||'FILE')+' · '+(Number(m.sizeBytes||0)/1024/1024).toFixed(1)+' MB · '+(m.status==='UPLOADED'?'Uploaded to Google Drive':(m.lastError?'Upload needs retry':'Saved on this device'));
+    const detail=document.createElement('div');detail.className='small';detail.textContent=(m.evidenceType||'FILE')+(m.questionLabel?' · M&E: '+m.questionLabel:'')+' · '+(Number(m.sizeBytes||0)/1024/1024).toFixed(2)+' MB · '+(m.status==='UPLOADED'?'Uploaded to Google Drive':(m.lastError?'Upload needs retry':'Saved on this device'));
     name.appendChild(strong);name.appendChild(detail);item.appendChild(name);
     if(m.status==='UPLOADED'&&m.driveUrl){const link=document.createElement('a');link.href=m.driveUrl;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Open in Drive';link.style.cssText='font-size:13px;font-weight:700;color:#007a7a';item.appendChild(link);}
     wrap.appendChild(item);
@@ -568,7 +568,7 @@ function bytesToBase64(arrayBuffer){
   return btoa(binary);
 }
 function evidenceUploadMeta(m){
-  return {uploadID:m.uploadID||m.id,evidenceID:m.evidenceID||m.id,visitID:m.visitID,projectID:m.projectID,projectName:m.projectName,visitTypeID:m.visitTypeID,schoolKey:m.schoolKey,fileName:m.fileName,mimeType:m.mimeType,sizeBytes:Number(m.sizeBytes),totalChunks:Math.ceil(Number(m.sizeBytes)/(512*1024)),capturedAt:m.capturedAt,latitude:m.latitude,longitude:m.longitude,gpsAccuracy:m.gpsAccuracy,notes:m.notes||''};
+  return {uploadID:m.uploadID||m.id,evidenceID:m.evidenceID||m.id,visitID:m.visitID,projectID:m.projectID,projectName:m.projectName,visitTypeID:m.visitTypeID,schoolKey:m.schoolKey,fileName:m.fileName,mimeType:m.mimeType,sizeBytes:Number(m.sizeBytes),totalChunks:Math.ceil(Number(m.sizeBytes)/(512*1024)),capturedAt:m.capturedAt,latitude:m.latitude,longitude:m.longitude,gpsAccuracy:m.gpsAccuracy,notes:m.notes||'',questionFormID:m.questionFormID||'',questionFormVersion:m.questionFormVersion||'',questionID:m.questionID||'',questionLabel:m.questionLabel||'',questionType:m.questionType||''};
 }
 async function syncEvidenceQueue(){
   if(!online()||!offlineToken)return {uploaded:0,failed:0};
@@ -591,7 +591,7 @@ async function syncEvidenceQueue(){
       const result=await bridgeCall('EVIDENCE_FINALIZE',[offlineToken,meta]);
       if(!result||!result.success||!result.fileId||!result.driveUrl)throw new Error('Google Drive did not confirm the uploaded file.');
       m.status='UPLOADED';m.driveFileId=result.fileId;m.driveUrl=result.driveUrl;m.uploadedAt=isoNow();m.lastError='';m.blob=null;m.lastChunkUploaded=total;await idbPut('media',m);uploaded++;
-      await renderEvidenceAttachments();await renderQueue();
+      await refreshMneQuestionMediaRecord(m);await renderEvidenceAttachments();await renderQueue();
     }catch(e){
       m=await idbGet('media',original.id)||m;m.status='PENDING';m.lastError=String(e&&e.message?e.message:e).slice(0,500);await idbPut('media',m);failed++;await renderEvidenceAttachments();await renderQueue();
     }
@@ -657,72 +657,108 @@ window.startVisit=async function(){
 };
 
 function collectMneDraftResponses(f,block){
-  const responses={};(f.questions||[]).forEach(function(q){if(q.type==='checkboxes'){responses[q.id]=Array.from(block.querySelectorAll('[data-mne-check="'+q.id+'"]:checked')).map(function(el){return el.value;});}else{const el=block.querySelector('[data-mne-answer="'+q.id+'"]');responses[q.id]=el?String(el.value||''):'';}});return responses;
+  const responses={};(f.questions||[]).forEach(function(q){if(q.type==='checkboxes'){responses[q.id]=Array.from(block.querySelectorAll('[data-mne-check="'+q.id+'"]:checked')).map(function(el){return el.value;});}else if(q.type==='photo_upload'||q.type==='video_upload'){responses[q.id]=[];}else{const el=block.querySelector('[data-mne-answer="'+q.id+'"]');responses[q.id]=el?String(el.value||''):'';}});return responses;
 }
+function mneQuestionMediaMatches(m,f,q){return activeVisit&&String(m.visitID||'')===String(activeVisit.visitID)&&String(m.questionFormID||'')===String(f.formID)&&Number(m.questionFormVersion||0)===Number(f.version)&&String(m.questionID||'')===String(q.id);}
+async function mneQuestionMediaRecords(f,q){return (await idbAll('media')).filter(function(m){return mneQuestionMediaMatches(m,f,q);}).sort(function(a,b){return String(a.createdAt||'').localeCompare(String(b.createdAt||''));});}
 function scheduleMneDraftSave(f,block){
   if(!activeVisit||!f||!block)return;if(mneDraftTimer)clearTimeout(mneDraftTimer);
-  mneDraftTimer=setTimeout(function(){const draft={formID:f.formID,version:f.version,responses:collectMneDraftResponses(f,block),updatedAt:isoNow()};const key=mneSubmissionKey(f);activeVisit.mneDrafts=activeVisit.mneDrafts&&typeof activeVisit.mneDrafts==='object'?activeVisit.mneDrafts:{};activeVisit.mneDrafts[key]=draft;metaSet('activeVisit',activeVisit).catch(function(e){setMessage('M&E draft could not be saved locally: '+(e&&e.message?e.message:e),'bad');});},180);
+  mneDraftTimer=setTimeout(async function(){try{const responses=collectMneDraftResponses(f,block);for(const q of f.questions||[]){if(q.type==='photo_upload'||q.type==='video_upload'){const records=await mneQuestionMediaRecords(f,q);responses[q.id]=records.map(function(m){return m.evidenceID;});}}const draft={formID:f.formID,version:f.version,responses:responses,updatedAt:isoNow()};const key=mneSubmissionKey(f);activeVisit.mneDrafts=activeVisit.mneDrafts&&typeof activeVisit.mneDrafts==='object'?activeVisit.mneDrafts:{};activeVisit.mneDrafts[key]=draft;await metaSet('activeVisit',activeVisit);}catch(e){setMessage('M&E draft could not be saved locally: '+(e&&e.message?e.message:e),'bad');}},180);
 }
-async function reconcileQueuedMneSubmissions(v){
-  if(!v||!v.visitID)return;
-  const q=await idbAll('queue');v.mneFormSubmissions=Array.isArray(v.mneFormSubmissions)?v.mneFormSubmissions:[];
-  q.forEach(function(item){const p=item&&item.payload||{},d=p.activityFormData||{};if(String(item.action||'').toUpperCase()==='FIELD_REPORT'&&String(p.visitID||'')===String(v.visitID)&&d.customFormId&&d.formVersion!=null){const k=mneSubmissionKey({formID:d.customFormId,version:d.formVersion});if(v.mneFormSubmissions.indexOf(k)<0)v.mneFormSubmissions.push(k);}});
-  await metaSet('activeVisit',v);
-}
-window.checkOutVisit=async function(){
-  if(!activeVisit){setMessage('There is no active visit.','warn');return;}
-  const drafts=activeVisit.mneDrafts&&typeof activeVisit.mneDrafts==='object'?activeVisit.mneDrafts:{};
-  const unsaved=Object.keys(drafts).map(function(k){return drafts[k];}).find(function(d){return mneDraftHasAnswers(d)&&(!Array.isArray(activeVisit.mneFormSubmissions)||activeVisit.mneFormSubmissions.indexOf(mneSubmissionKey(d))<0);});
-  if(unsaved){renderAssignedMneForms();setMessage('You have unsaved answers in an MNE questionnaire. Save the form before checking out, or clear the draft first.','warn');$('customMneCard').scrollIntoView({behavior:'smooth',block:'start'});return;}
-  const forms=Array.isArray(activeVisit.formSnapshot)?activeVisit.formSnapshot:[];
-  const required=activeVisit.mneDrivenVisit===true?forms.filter(function(f){return f.requiredForVisit!==false;}):[];
-  const missing=required.filter(function(f){return !activeVisit.mneFormSubmissions||activeVisit.mneFormSubmissions.indexOf(mneSubmissionKey(f))<0;});
-  if(missing.length){setMessage('Complete all required MNE questionnaires before check-out: '+missing.map(function(f){return f.title;}).join(', ')+'.','warn');$('customMneCard').scrollIntoView({behavior:'smooth',block:'start'});return;}
-  const tools=aggregateFieldTools(forms),media=(await idbAll('media')).filter(function(m){return String(m.visitID)===String(activeVisit.visitID);});
-  if(tools.photosRequired&&!media.some(function(m){return m.evidenceType==='IMAGE';})){setMessage('MNE requires at least one photograph for this visit. Attach the required photo before check-out.','warn');$('fieldEvidenceCard').scrollIntoView({behavior:'smooth',block:'start'});return;}
-  if(tools.videosRequired&&!media.some(function(m){return m.evidenceType==='VIDEO';})){setMessage('MNE requires at least one video for this visit. Attach the required video before check-out.','warn');$('fieldEvidenceCard').scrollIntoView({behavior:'smooth',block:'start'});return;}
-  $('checkoutBtn').disabled=true;
+async function compressMnePhoto(file){
+  let source=null,url='';
   try{
-    setMessage('Capturing mandatory GPS check-out. Internet is not required.','');const gps=await captureGPS(),verification=localVerify(gps,activeVisit.school);
-    const payload={action:'CHECK_OUT',visitID:activeVisit.visitID,idempotencyKey:activeVisit.visitID+':CHECKOUT',latitude:gps.latitude,longitude:gps.longitude,accuracy:gps.accuracy,capturedAt:gps.capturedAt};
-    await enqueue('CHECK_OUT',payload);$('visitStatus').textContent='Check-out saved on this device. Local GPS result: '+verification.status+(verification.distance!=null?' | Distance: '+Math.round(verification.distance)+' m':'');$('visitStatus').className='status '+(verification.status==='VERIFIED'?'':'warn');
-    $('gpsBox').textContent+='\n\nCheck-out GPS\nLatitude: '+gps.latitude+'\nLongitude: '+gps.longitude+'\nAccuracy: '+Math.round(gps.accuracy)+' m\nCaptured: '+fmt(gps.capturedAt)+'\nLocal verification: '+verification.status+(verification.distance!=null?'\nDistance: '+Math.round(verification.distance)+' m':'');
-    await metaSet('activeVisit',null);activeVisit=null;$('visitType').disabled=false;$('activeCard').classList.add('hidden');$('fieldEvidenceCard').classList.add('hidden');renderAssignedMneForms();setMessage(online()?'Check-out saved and synchronizing.':'Check-out saved offline. All records remain on this device until PEN confirms synchronization.','ok');if(online()){await syncQueue();await refreshPublishedMneForms(true);}
-  }catch(e){$('checkoutBtn').disabled=false;setMessage('Check-out could not be completed: '+(e.message||e),'bad');}
-};
-
-function mneHtmlSafe(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-let mnePublishedForms=[];
-function normaliseFieldTools(value){value=value&&typeof value==='object'?value:{};const photosEnabled=value.photosEnabled!==false||value.photosRequired===true,videosEnabled=value.videosEnabled!==false||value.videosRequired===true;return {photosEnabled:photosEnabled,photosRequired:photosEnabled&&value.photosRequired===true,videosEnabled:videosEnabled,videosRequired:videosEnabled&&value.videosRequired===true};}
-function aggregateFieldTools(forms){const out={photosEnabled:false,photosRequired:false,videosEnabled:false,videosRequired:false};(forms||[]).forEach(function(f){const t=normaliseFieldTools(f.fieldTools);out.photosEnabled=out.photosEnabled||t.photosEnabled;out.photosRequired=out.photosRequired||t.photosRequired;out.videosEnabled=out.videosEnabled||t.videosEnabled;out.videosRequired=out.videosRequired||t.videosRequired;});return out;}
-function formsForVisitType(visitTypeID){const id=String(visitTypeID||'');if(!id)return [];return mnePublishedForms.filter(function(f){return f&&f.formID&&Array.isArray(f.visitTypeIDs)&&f.visitTypeIDs.map(String).indexOf(id)>=0&&(!Array.isArray(f.projectIDs)||!f.projectIDs.length||f.projectIDs.map(String).indexOf(String(projectID))>=0);}).map(function(f){return Object.assign({},f,{requiredForVisit:f.requiredForVisit!==false,fieldTools:normaliseFieldTools(f.fieldTools)});});}
-function mneSubmissionKey(f){return f?String(f.formID)+'|'+String(f.version):'';}
-function mneDraftForForm(f){if(!activeVisit||!f)return null;const key=mneSubmissionKey(f),drafts=activeVisit.mneDrafts&&typeof activeVisit.mneDrafts==='object'?activeVisit.mneDrafts:{};if(drafts[key])return drafts[key];const legacy=activeVisit.mneDraft;return legacy&&String(legacy.formID)===String(f.formID)&&Number(legacy.version)===Number(f.version)?legacy:null;}
-function mneDraftHasAnswers(draft){const responses=draft&&draft.responses&&typeof draft.responses==='object'?draft.responses:{};return Object.keys(responses).some(function(k){const v=responses[k];return Array.isArray(v)?v.length>0:String(v==null?'':v).trim()!=='';});}
-function renderCustomMneFormOptions(forms){mnePublishedForms=Array.isArray(forms)?forms:[];renderAssignedMneForms();}
-function updateCustomMneCardVisibility(){renderAssignedMneForms();}
-function renderFieldToolsForVisit(){const tools=aggregateFieldTools(activeVisit&&activeVisit.formSnapshot||formsForVisitType($('visitType').value));$('fieldEvidenceCard').classList.toggle('hidden',!(tools.photosEnabled||tools.videosEnabled));const image=$('imageEvidenceInput'),video=$('videoEvidenceInput');if(image)image.disabled=!tools.photosEnabled;if(video)video.disabled=!tools.videosEnabled;const buttons=$('fieldEvidenceCard').querySelectorAll('button');if(buttons[0])buttons[0].classList.toggle('hidden',!tools.photosEnabled);if(buttons[1])buttons[1].classList.toggle('hidden',!tools.videosEnabled);const desc=$('fieldEvidenceCard').querySelector('.small');if(desc)desc.textContent='MNE-configured evidence tools. Files are saved on this device while offline and uploaded to PEN Drive when synchronization is available. '+(tools.photosRequired?'At least one photograph is required. ':'')+(tools.videosRequired?'At least one video is required.':'');}
+    if(typeof createImageBitmap==='function')source=await createImageBitmap(file);
+    else{url=URL.createObjectURL(file);source=await new Promise(function(resolve,reject){const img=new Image();img.onload=function(){resolve(img);};img.onerror=function(){reject(new Error('This photo format cannot be read by this device. Choose a JPEG or PNG photo.'));};img.src=url;});}
+    const width=Number(source.width||source.naturalWidth||0),height=Number(source.height||source.naturalHeight||0);if(!width||!height)throw new Error('The selected photo could not be decoded.');
+    const scale=Math.min(1,1280/Math.max(width,height)),w=Math.max(1,Math.round(width*scale)),h=Math.max(1,Math.round(height*scale));
+    const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw new Error('Photo compression is unavailable in this browser.');ctx.drawImage(source,0,0,w,h);
+    let blob=await new Promise(function(resolve){canvas.toBlob(resolve,'image/jpeg',0.68);});if(!blob)throw new Error('The photo could not be compressed.');
+    if(blob.size>320*1024)blob=await new Promise(function(resolve){canvas.toBlob(resolve,'image/jpeg',0.55);});
+    if(blob&&blob.size>450*1024){const smaller=document.createElement('canvas');smaller.width=Math.max(1,Math.round(w*0.8));smaller.height=Math.max(1,Math.round(h*0.8));const smallerCtx=smaller.getContext('2d',{alpha:false});smallerCtx.drawImage(canvas,0,0,smaller.width,smaller.height);blob=await new Promise(function(resolve){smaller.toBlob(resolve,'image/jpeg',0.48);});}
+    if(!blob||blob.size>700*1024)throw new Error('This photo is still too large after compression. Choose a smaller image or reduce its detail.');
+    return blob;
+  }finally{if(source&&typeof source.close==='function')source.close();if(url)URL.revokeObjectURL(url);}
+}
+async function mneVideoInfo(file){const url=URL.createObjectURL(file);try{return await new Promise(function(resolve,reject){const video=document.createElement('video');video.preload='metadata';video.onloadedmetadata=function(){const info={duration:Number(video.duration),width:Number(video.videoWidth||0),height:Number(video.videoHeight||0)};URL.revokeObjectURL(url);if(!info.width||!info.height)reject(new Error('The video dimensions could not be read. Choose an MP4 or WebM clip.'));else resolve(info);};video.onerror=function(){URL.revokeObjectURL(url);reject(new Error('This video format cannot be previewed by the browser. Choose MP4 or WebM.'));};video.src=url;});}catch(e){try{URL.revokeObjectURL(url);}catch(_){}throw e;}}
+async function toggleMneQuestionVideoRecording(f,q,list,message,button){
+  const current=button._mneRecorderState;
+  if(current){button.disabled=true;try{current.recorder.stop();}catch(e){button.disabled=false;message.textContent='Recording could not be stopped: '+(e.message||e);message.className='status bad';}return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||typeof MediaRecorder==='undefined'){message.textContent='In-app 480p recording is not supported by this browser. Use Add video with a clip recorded at 480p.';message.className='status warn';return;}
+  const existing=await mneQuestionMediaRecords(f,q);if(existing.length)throw new Error('This video question already has its one attachment. Remove the pending clip before recording another.');
+  let stream=null;
+  try{
+    const constraints={video:{facingMode:{ideal:'environment'},width:{ideal:640,max:640},height:{ideal:480,max:480},frameRate:{ideal:15,max:20}},audio:{echoCancellation:true,noiseSuppression:true}};
+    try{stream=await navigator.mediaDevices.getUserMedia(constraints);}catch(_){stream=await navigator.mediaDevices.getUserMedia({video:constraints.video,audio:false});}
+    const candidates=['video/webm;codecs=vp8,opus','video/webm','video/mp4'];let mime='';for(const t of candidates){if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t)){mime=t;break;}}
+    const options={videoBitsPerSecond:450000,audioBitsPerSecond:64000};if(mime)options.mimeType=mime;
+    const recorder=new MediaRecorder(stream,options),chunks=[];const extension=(recorder.mimeType||mime||'video/webm').indexOf('mp4')>=0?'mp4':'webm';
+    const state={recorder:recorder,stream:stream,startedAt:Date.now()};button._mneRecorderState=state;button.disabled=false;button.textContent='Stop recording';message.textContent='Recording low-resolution video (maximum 30 seconds).';message.className='status warn';
+    recorder.ondataavailable=function(event){if(event.data&&event.data.size)chunks.push(event.data);};
+    recorder.onerror=function(){try{recorder.stop();}catch(_){};};
+    recorder.onstop=async function(){clearTimeout(state.timer);stream.getTracks().forEach(function(track){track.stop();});button._mneRecorderState=null;button.disabled=false;button.textContent='Record 480p video';
+      try{const type=(recorder.mimeType||mime||'video/webm').split(';')[0],blob=new Blob(chunks,{type:type});if(!blob.size)throw new Error('No video data was recorded. Try recording again.');if(blob.size>15*1024*1024)throw new Error('The recorded clip exceeds 15 MB. Record a shorter clip.');const file=new File([blob],'mne-question-video.'+extension,{type:type,lastModified:Date.now()});file.durationSeconds=Math.min(30,(Date.now()-state.startedAt)/1000);await addMneQuestionMedia(f,q,[file],list,message);}catch(e){message.textContent='Video was not saved: '+(e.message||e);message.className='status bad';}
+    };
+    recorder.start(1000);state.timer=setTimeout(function(){if(recorder.state==='recording')recorder.stop();},30000);
+  }catch(e){if(stream)stream.getTracks().forEach(function(track){track.stop();});button._mneRecorderState=null;button.disabled=false;button.textContent='Record 480p video';throw new Error('Camera recording could not start: '+(e&&e.message?e.message:e));}
+}
+async function renderMneQuestionMediaList(f,q,list,submitted){
+  const records=await mneQuestionMediaRecords(f,q);Array.from(list.querySelectorAll('img')).forEach(function(img){try{if(String(img.src||'').indexOf('blob:')===0)URL.revokeObjectURL(img.src);}catch(_){}});list.innerHTML='';
+  if(!records.length){const empty=document.createElement('div');empty.className='small';empty.textContent='No '+(q.type==='photo_upload'?'photos':'video')+' attached yet.';list.appendChild(empty);return;}
+  records.forEach(function(m,index){const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:9px;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:7px';
+    if(q.type==='photo_upload'&&m.blob){const img=document.createElement('img');img.src=URL.createObjectURL(m.blob);img.alt='Question photo '+(index+1);img.style.cssText='width:68px;height:58px;object-fit:cover;border-radius:6px';row.appendChild(img);}
+    const text=document.createElement('div');text.style.cssText='min-width:0;flex:1';const name=document.createElement('strong');name.style.cssText='display:block;font-size:12px;overflow-wrap:anywhere';name.textContent=m.fileName||('Attachment '+(index+1));const status=document.createElement('div');status.className='small';status.textContent=(m.status==='UPLOADED'?'Uploaded to PEN Drive':m.status==='UPLOADING'?'Uploading…':m.lastError?'Upload needs retry':'Saved offline · waiting to sync')+' · '+(Number(m.sizeBytes||0)/1024).toFixed(0)+' KB';text.appendChild(name);text.appendChild(status);row.appendChild(text);
+    if(m.status==='UPLOADED'&&m.driveUrl){const a=document.createElement('a');a.href=m.driveUrl;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Open';a.style.cssText='font-size:12px;font-weight:700';row.appendChild(a);}
+    else if(!submitted&&m.status!=='UPLOADING'){const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='Remove';remove.addEventListener('click',async function(){if(m.status==='UPLOADED')return;await idbDelete('media',m.id);await renderMneQuestionMediaList(f,q,list,submitted);scheduleMneDraftSave(f,list.closest('.mne-questions'));await renderEvidenceAttachments();await renderQueue();});row.appendChild(remove);}
+    list.appendChild(row);
+  });
+}
+async function refreshMneQuestionMediaRecord(m){
+  if(!activeVisit||!m||!m.questionFormID)return;const f=(activeVisit.formSnapshot||[]).find(function(x){return String(x.formID)===String(m.questionFormID)&&Number(x.version)===Number(m.questionFormVersion);});if(!f)return;const q=(f.questions||[]).find(function(x){return String(x.id)===String(m.questionID);});if(!q)return;const list=Array.from(document.querySelectorAll('.mne-question-media-list')).find(function(x){return x.dataset.formId===String(f.formID)&&x.dataset.formVersion===String(f.version)&&x.dataset.questionId===String(q.id);});if(!list)return;const submitted=Array.isArray(activeVisit.mneFormSubmissions)&&activeVisit.mneFormSubmissions.indexOf(mneSubmissionKey(f))>=0;await renderMneQuestionMediaList(f,q,list,submitted);
+}
+async function addMneQuestionMedia(f,q,files,list,message,input){
+  if(!activeVisit||!files.length)return;
+  const photo=q.type==='photo_upload',max=photo?3:1,existing=await mneQuestionMediaRecords(f,q);if(existing.length+files.length>max)throw new Error(photo?'This question allows a maximum of 3 photos.':'This question allows only one video.');
+  const allMedia=await idbAll('media');if(allMedia.filter(function(m){return String(m.visitID||'')===String(activeVisit.visitID);}).length+files.length>30)throw new Error('This visit has reached the 30-file evidence limit.');
+  const pendingBytes=allMedia.filter(function(m){return String(m.visitID||'')===String(activeVisit.visitID)&&m.status!=='UPLOADED';}).reduce(function(n,m){return n+Number(m.sizeBytes||0);},0);
+  const prepared=[];let batchBytes=0;
+  for(const file of files){if(!file||!file.size)throw new Error('The selected attachment is empty.');const mime=evidenceMime(file,photo?'IMAGE':'VIDEO');if(!mime||mime.indexOf(photo?'image/':'video/')!==0)throw new Error(photo?'Select image files only.':'Select a video file only.');
+    let blob,mimeType,fileName;
+    if(photo){if(file.size>15*1024*1024)throw new Error('The original photo is larger than 15 MB. Choose a smaller image before compression.');blob=await compressMnePhoto(file);mimeType='image/jpeg';fileName=String(file.name||'photo').replace(/\.[^.]+$/,'')+'.jpg';if(blob.size>700*1024)throw new Error('The compressed photo exceeds the offline storage limit.');}
+    else{if(file.size>15*1024*1024)throw new Error('Video must be 15 MB or smaller. Record or export it at 480p and try again.');const info=await mneVideoInfo(file),duration=Number(file.durationSeconds||info.duration),longSide=Math.max(info.width,info.height),shortSide=Math.min(info.width,info.height);if(longSide>640||shortSide>480)throw new Error('This video is higher than the offline 480p limit ('+info.width+'×'+info.height+'). Use Record 480p video or export a clip at 640×480 or smaller.');if(!Number.isFinite(duration)||duration<=0||duration>30.5)throw new Error('Video must be no longer than 30 seconds.');blob=file;mimeType=mime;fileName=String(file.name||'field-video').slice(0,180);}
+    batchBytes+=blob.size;prepared.push({blob:blob,mimeType:mimeType,fileName:fileName,evidenceType:photo?'IMAGE':'VIDEO'});
+  }
+  if(pendingBytes+batchBytes>75*1024*1024)throw new Error('The visit would exceed the 75 MB pending offline evidence limit. Synchronize existing evidence first.');
+  for(const p of prepared){const id=uid('FVUP'),evidenceID=uid('EVID');const record={id:id,uploadID:id,evidenceID:evidenceID,visitID:String(activeVisit.visitID),projectID:String(projectID||''),projectName:String(projectName||''),visitTypeID:String(activeVisit.payload&&activeVisit.payload.visitTypeID||''),schoolKey:String(activeVisit.school&&activeVisit.school.schoolKey||''),school:String(activeVisit.school&&activeVisit.school.school||''),county:String(activeVisit.school&&activeVisit.school.county||''),fileName:p.fileName,mimeType:p.mimeType,sizeBytes:Number(p.blob.size),blob:p.blob,evidenceType:p.evidenceType,capturedAt:isoNow(),latitude:'',longitude:'',gpsAccuracy:'',notes:'M&E question attachment: '+String(q.label||q.id),status:'PENDING',createdAt:isoNow(),uploadedAt:'',driveUrl:'',driveFileId:'',lastError:'',questionFormID:String(f.formID),questionFormVersion:Number(f.version),questionID:String(q.id),questionLabel:String(q.label||''),questionType:String(q.type)};await idbPut('media',record);}
+  if(message){message.textContent=photo?'Photo(s) compressed and saved on this device. They will sync when internet is available.':'Video saved on this device. It will sync when internet is available.';message.className='status ok';}
+  await renderMneQuestionMediaList(f,q,list,false);scheduleMneDraftSave(f,list.closest('.mne-questions'));await renderEvidenceAttachments();await renderQueue();if(online())await syncQueue();
+}
 function renderAssignedMneForms(){
   const card=$('customMneCard'),box=$('customMneQuestions'),desc=$('customMneFormDescription'),notice=$('customMnePreviewNotice');if(!card||!box)return;
   const visitTypeID=String(activeVisit&&activeVisit.payload&&activeVisit.payload.visitTypeID||$('visitType')&&$('visitType').value||''),forms=activeVisit&&Array.isArray(activeVisit.formSnapshot)?activeVisit.formSnapshot:formsForVisitType(visitTypeID);
   card.classList.toggle('hidden',!visitTypeID);desc.textContent=visitTypeID?'The following MNE-published forms are assigned to this visit type. Each form is part of the same visit record.':'';
   box.innerHTML='';if(!visitTypeID){if(notice){notice.textContent='Select a visit type to see its published MNE forms.';notice.classList.remove('hidden');}return;}
   if(!forms.length){if(notice){notice.textContent='No published MNE questionnaires are assigned to this project, visit type and staff role. M&E must publish the required questionnaire before a field visit can start.';notice.classList.remove('hidden');}return;}
-  if(notice){notice.textContent=activeVisit?'Complete the required MNE questionnaires below. Your answers are saved locally as you work.':'Preview only. These forms will open for data entry after GPS check-in.';notice.classList.remove('hidden');}
+  if(notice){notice.textContent=activeVisit?'Complete the required MNE questionnaires below. Answers and attachments are saved locally as you work.':'Preview only. These forms will open for data entry after GPS check-in.';notice.classList.remove('hidden');}
   forms.forEach(function(f,index){
     const key=mneSubmissionKey(f),submitted=!!(activeVisit&&Array.isArray(activeVisit.mneFormSubmissions)&&activeVisit.mneFormSubmissions.indexOf(key)>=0),block=document.createElement('div');block.className='card';block.style.margin='12px 0';block.dataset.formIndex=String(index);
-    const badge=f.requiredForVisit!==false?'Required for visit':'Optional form';
     const title=document.createElement('h2');title.textContent=(index+1)+'. '+String(f.title||'MNE form')+' · v'+String(f.version||1);block.appendChild(title);
-    const meta=document.createElement('div');meta.className='small';meta.textContent=badge+(f.description?' · '+f.description:'');block.appendChild(meta);
+    const meta=document.createElement('div');meta.className='small';meta.textContent=(f.requiredForVisit!==false?'Required for visit':'Optional form')+(f.description?' · '+f.description:'');block.appendChild(meta);
     const questions=document.createElement('div');questions.className='mne-questions';
     (f.questions||[]).forEach(function(q,i){const wrap=document.createElement('div');wrap.style.cssText='margin:12px 0';const label=document.createElement('label');label.className='label';label.textContent=(i+1)+'. '+String(q.label||'Question')+(q.required?' *':'');wrap.appendChild(label);if(q.helpText){const help=document.createElement('div');help.className='small';help.textContent=q.helpText;wrap.appendChild(help);}let control;
-      if(q.type==='long_text'){control=document.createElement('textarea');control.dataset.mneAnswer=q.id;}
+      if(q.type==='photo_upload'||q.type==='video_upload'){
+        control=document.createElement('div');const hint=document.createElement('div');hint.className='small';hint.textContent=q.type==='photo_upload'?'Up to 3 photos. Each photo is resized to max 1280 px and compressed to JPEG for offline storage (target 150–300 KB; hard limit 700 KB).':'One video, maximum 30 seconds and 15 MB. For low offline storage use the device camera at 480p.';control.appendChild(hint);
+        const input=document.createElement('input');input.type='file';input.accept=q.type==='photo_upload'?'image/*':'video/*';input.capture='environment';input.multiple=q.type==='photo_upload';input.disabled=!activeVisit||submitted;input.style.cssText='display:block;margin:8px 0';const choose=document.createElement('button');choose.type='button';choose.className='secondary';choose.textContent=q.type==='photo_upload'?'Add photo(s)':'Choose video';choose.disabled=!activeVisit||submitted;choose.addEventListener('click',function(){input.click();});input.addEventListener('change',async function(){try{await addMneQuestionMedia(f,q,Array.from(input.files||[]),list,message);}catch(e){message.textContent='Attachment not added: '+(e.message||e);message.className='status bad';}finally{input.value='';}});control.appendChild(input);control.appendChild(choose);if(q.type==='video_upload'){const record=document.createElement('button');record.type='button';record.className='secondary';record.style.marginLeft='6px';record.textContent='Record 480p video';record.disabled=!activeVisit||submitted;record.addEventListener('click',async function(){try{await toggleMneQuestionVideoRecording(f,q,list,message,record);}catch(e){message.textContent=e.message||String(e);message.className='status bad';}});control.appendChild(record);}
+        var list=document.createElement('div');list.className='mne-question-media-list';list.dataset.formId=String(f.formID);list.dataset.formVersion=String(f.version);list.dataset.questionId=String(q.id);control.appendChild(list);
+      }
+      else if(q.type==='long_text'){control=document.createElement('textarea');control.dataset.mneAnswer=q.id;}
       else if(q.type==='multiple_choice'||q.type==='dropdown'||q.type==='yes_no'){control=document.createElement('select');control.dataset.mneAnswer=q.id;const opts=q.type==='yes_no'?['Yes','No']:(q.options||[]);const blank=document.createElement('option');blank.value='';blank.textContent='Select...';control.appendChild(blank);opts.forEach(function(o){const option=document.createElement('option');option.value=o;option.textContent=o;control.appendChild(option);});}
       else if(q.type==='checkboxes'){control=document.createElement('div');(q.options||[]).forEach(function(o){const lab=document.createElement('label');lab.style.cssText='display:block;margin:5px 0';const cb=document.createElement('input');cb.type='checkbox';cb.dataset.mneCheck=q.id;cb.value=o;lab.appendChild(cb);lab.appendChild(document.createTextNode(' '+o));control.appendChild(lab);});}
       else{control=document.createElement('input');control.type=q.type==='number'||q.type==='rating'?'number':q.type==='date'?'date':'text';if(q.type==='rating'){control.min='1';control.max='5';control.step='1';}control.dataset.mneAnswer=q.id;}
       if(control.tagName!=='DIV'){control.disabled=!activeVisit||submitted;if(q.required)control.required=true;wrap.appendChild(control);}else{Array.from(control.querySelectorAll('input')).forEach(function(el){el.disabled=!activeVisit||submitted;});wrap.appendChild(control);}questions.appendChild(wrap);
+      if(q.type==='photo_upload'||q.type==='video_upload'){const list=control.querySelector('.mne-question-media-list');renderMneQuestionMediaList(f,q,list,submitted).catch(function(e){list.textContent='Attachments could not be loaded: '+(e.message||e);});}
     });block.appendChild(questions);
-    const message=document.createElement('div');message.className='status';message.style.marginTop='8px';message.textContent=submitted?'Saved for this visit.':activeVisit?'Answers autosave locally. Save this questionnaire when complete.':'Preview only; no answers are saved.';block.appendChild(message);
+    const message=document.createElement('div');message.className='status';message.style.marginTop='8px';message.textContent=submitted?'Saved for this visit.':activeVisit?'Answers and attachments autosave locally. Save this questionnaire when complete.':'Preview only; no answers are saved.';block.appendChild(message);
     if(activeVisit){const save=document.createElement('button');save.type='button';save.disabled=submitted;save.textContent=submitted?'Form Saved':'Save Questionnaire';save.addEventListener('click',function(){saveAssignedMneForm(index,block,save,message);});block.appendChild(save);}
     box.appendChild(block);
     if(activeVisit&&!submitted){const draft=mneDraftForForm(f);if(draft&&draft.responses){Object.keys(draft.responses).forEach(function(qid){const val=draft.responses[qid],field=questions.querySelector('[data-mne-answer="'+qid+'"]');if(field)field.value=Array.isArray(val)?val.join(', '):String(val==null?'':val);if(Array.isArray(val))questions.querySelectorAll('[data-mne-check="'+qid+'"]').forEach(function(cb){cb.checked=val.indexOf(cb.value)>=0;});});}questions.querySelectorAll('[data-mne-answer], [data-mne-check]').forEach(function(el){el.addEventListener('input',function(){scheduleMneDraftSave(f,questions);});el.addEventListener('change',function(){scheduleMneDraftSave(f,questions);});});}
@@ -731,10 +767,10 @@ function renderAssignedMneForms(){
 }
 async function saveAssignedMneForm(index,block,button,message){
   if(!activeVisit)return;const forms=activeVisit.formSnapshot||[],f=forms[Number(index)];if(!f)return;const formKey=mneSubmissionKey(f);activeVisit.mneFormSubmissions=Array.isArray(activeVisit.mneFormSubmissions)?activeVisit.mneFormSubmissions:[];if(activeVisit.mneFormSubmissions.indexOf(formKey)>=0)return;
-  const responses={};for(const q of f.questions||[]){let value;if(q.type==='checkboxes')value=Array.from(block.querySelectorAll('[data-mne-check="'+q.id+'"]:checked')).map(function(x){return x.value;});else{const el=block.querySelector('[data-mne-answer="'+q.id+'"]');value=el?String(el.value||'').trim():'';}if(q.required&&(value===''||(Array.isArray(value)&&!value.length))){setMessage('Please answer the required question: '+q.label,'warn');return;}responses[q.id]=value;}
+  const responses={};for(const q of f.questions||[]){let value;if(q.type==='checkboxes')value=Array.from(block.querySelectorAll('[data-mne-check="'+q.id+'"]:checked')).map(function(x){return x.value;});else if(q.type==='photo_upload'||q.type==='video_upload'){const records=await mneQuestionMediaRecords(f,q);value=records.map(function(m){return {evidenceID:m.evidenceID};});const max=q.type==='photo_upload'?3:1;if(value.length>max){setMessage('Too many attachments for question: '+q.label,'warn');return;}}else{const el=block.querySelector('[data-mne-answer="'+q.id+'"]');value=el?String(el.value||'').trim():'';}if(q.required&&(value===''||(Array.isArray(value)&&!value.length))){setMessage('Please answer the required question: '+q.label,'warn');return;}responses[q.id]=value;}
   button.disabled=true;button.textContent='Saving locally…';const stableKey=String(activeVisit.visitID)+':MNE:'+String(f.formID)+':V'+String(f.version);
   const payload={visitID:activeVisit.visitID,idempotencyKey:stableKey,projectID:projectID,projectName:projectName,mneFormsSyncedAt:activeVisit.mneFormsSyncedAt||'',visitType:String(activeVisit.payload.visitType||''),visitTypeID:String(activeVisit.payload.visitTypeID||''),clientSubmittedAt:isoNow(),activityFormData:{customFormId:f.formID,formVersion:f.version,responses:responses},activitySummary:'MNE form: '+f.title};
-  try{const q=await idbAll('queue'),exists=q.some(function(item){const p=item&&item.payload||{};return String(item.action)==='FIELD_REPORT'&&String(p.visitID)===String(activeVisit.visitID)&&String(p.idempotencyKey)===stableKey;});if(!exists)await enqueue('FIELD_REPORT',payload);if(activeVisit.mneFormSubmissions.indexOf(formKey)<0)activeVisit.mneFormSubmissions.push(formKey);if(activeVisit.mneDrafts)delete activeVisit.mneDrafts[formKey];await metaSet('activeVisit',activeVisit);message.textContent=online()?'Saved locally; synchronizing.':'Saved offline and will synchronize when internet returns.';message.className='status ok';button.textContent='Form Saved';if(online())await syncQueue();}catch(e){button.disabled=false;button.textContent='Save Questionnaire';setMessage('MNE questionnaire could not be saved: '+(e.message||e),'bad');}
+  try{const q=await idbAll('queue'),exists=q.some(function(item){const p=item&&item.payload||{};return String(item.action)==='FIELD_REPORT'&&String(p.visitID)===String(activeVisit.visitID)&&String(p.idempotencyKey)===stableKey;});if(!exists)await enqueue('FIELD_REPORT',payload);if(activeVisit.mneFormSubmissions.indexOf(formKey)<0)activeVisit.mneFormSubmissions.push(formKey);if(activeVisit.mneDrafts)delete activeVisit.mneDrafts[formKey];await metaSet('activeVisit',activeVisit);message.textContent=online()?'Saved locally; attachments and response will synchronize in order.':'Saved offline with its attachments. It will synchronize when internet returns.';message.className='status ok';button.textContent='Form Saved';if(online())await syncQueue();}catch(e){button.disabled=false;button.textContent='Save Questionnaire';setMessage('MNE questionnaire could not be saved: '+(e.message||e),'bad');}
 }
 window.renderCustomMneForm=function(){renderAssignedMneForms();};
 window.previewCustomMneForm=function(){renderAssignedMneForms();};
@@ -757,13 +793,25 @@ window.syncQueue=async function(){
   }
   try{
     const all=await idbAll('queue');all.sort(function(a,b){return String(a.createdAt).localeCompare(String(b.createdAt));});
-    const preCheckout=all.filter(function(x){return String(x.action||'').toUpperCase()!=='CHECK_OUT';});
+    const checkIns=all.filter(function(x){return String(x.action||'').toUpperCase()==='CHECK_IN';});
+    const otherPreCheckout=all.filter(function(x){const a=String(x.action||'').toUpperCase();return a!=='CHECK_OUT'&&a!=='CHECK_IN';});
     const checkouts=all.filter(function(x){return String(x.action||'').toUpperCase()==='CHECK_OUT';});
-    // Check-ins must exist on the server before evidence upload can be authenticated.
-    // MNE form responses are also saved before the server evaluates mandatory check-out.
-    await sendPhase(preCheckout);
+    // The visit must exist on the server before question-linked evidence can be uploaded.
+    await sendPhase(checkIns);
     const evidenceResult=await syncEvidenceQueue();
-    // A checkout is deliberately synchronized last so the server can enforce required forms and media.
+    // An MNE response with question media stays queued until every referenced file is confirmed in Drive.
+    const mediaNow=await idbAll('media'),sendableReports=[];
+    for(const item of otherPreCheckout){
+      const p=item&&item.payload||{},form=p.activityFormData||{},answers=form.responses||{};
+      if(String(item.action||'').toUpperCase()==='FIELD_REPORT'&&form.customFormId){
+        let pendingRefs=false;
+        Object.keys(answers).forEach(function(qid){const refs=Array.isArray(answers[qid])?answers[qid]:[];refs.forEach(function(ref){if(!ref||!ref.evidenceID)return;const m=mediaNow.find(function(x){return String(x.evidenceID||'')===String(ref.evidenceID);});if(!m||m.status!=='UPLOADED'||!m.driveUrl)pendingRefs=true;});});
+        if(pendingRefs){const stored=await idbGet('queue',item.id);if(stored){stored.lastError='Question attachments are still waiting for Google Drive upload. The M&E response remains safely queued.';await idbPut('queue',stored);}continue;}
+      }
+      sendableReports.push(item);
+    }
+    await sendPhase(sendableReports);
+    // Checkout is last so the server can enforce required forms and evidence.
     await sendPhase(checkouts);
     const remaining=await idbAll('queue');
     const pendingMedia=(await idbAll('media')).filter(function(m){return String(m.status||'PENDING')!=='UPLOADED'});
@@ -813,7 +861,7 @@ window.runOfflineReadiness=async function(){
     panel.className='status '+(failed.length?'warn':'ok');
     setMessage(failed.length?'This device is not fully prepared for offline fieldwork. Resolve the flagged items before travelling.':'Offline preparation checks passed. GPS reception and device permissions must still be available at the school.',''+(failed.length?'warn':'ok'));
     return {ready:failed.length===0,checks:checks};
-  }catch(e){panel.textContent='Offline readiness could not be verified (Build 2026.11.02.3): '+(e.message||e);panel.className='status bad';return {ready:false,error:e.message||String(e)};}
+  }catch(e){panel.textContent='Offline readiness could not be verified (Build 2026.11.04.2): '+(e.message||e);panel.className='status bad';return {ready:false,error:e.message||String(e)};}
   finally{if(btn)btn.disabled=false;}
 };
 
@@ -879,7 +927,7 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('controllerchange',function(){
     if(!hadController||controllerReloaded)return;
     controllerReloaded=true;
-    let key='PEN_FIELD_VISIT_CONTROLLER_RELOAD_2026_11_02_3';
+    let key='PEN_FIELD_VISIT_CONTROLLER_RELOAD_2026_11_04_2';
     try{if(sessionStorage.getItem(key)==='1')return;sessionStorage.setItem(key,'1');}catch(_){}
     location.reload();
   });
