@@ -1,7 +1,7 @@
-/* PEN Field Visit PWA app-shell cache — update-safe release 2026.11.05.1. */
+/* PEN Field Visit PWA app-shell cache — update-safe release 2026.11.05.2. */
 'use strict';
 const CACHE_PREFIX = 'pen-field-visit-subapp-shell-';
-const CACHE_NAME = CACHE_PREFIX + '2026.11.05.1';
+const CACHE_NAME = CACHE_PREFIX + '2026.11.05.2';
 const APP_BASE = new URL('./', self.registration.scope);
 const APP_INDEX = new URL('index.html', APP_BASE).href;
 const APP_MANIFEST = new URL('manifest.webmanifest', APP_BASE).href;
